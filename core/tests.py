@@ -59,7 +59,6 @@ from scholar_form.views import (
     _validate_direct_upload_meta,
     build_video_asset_context,
 )
-from subscriber.models import EmailSubscriber
 from scholar_form.services import yandex_disk
 
 
@@ -69,7 +68,6 @@ settings.MIGRATION_MODULES = {
     "my_study": None,
     "review_by_tutor": None,
     "scholar_form": None,
-    "subscriber": None,
 }
 
 
@@ -1611,23 +1609,6 @@ class StaffPageSmokeTests(IntegrationTestCase):
         self.assertRedirects(response, reverse("staff_documents_detail", args=[self.candidate.id]))
         doc.refresh_from_db()
         self.assertEqual(doc.status, "APPROVED")
-
-
-class SubscriberFlowTests(TestCase):
-    def test_announce_subscribes_and_thanks_consumes_session_email(self):
-        response = self.client.get(reverse("announce"))
-        self.assertIn(response.status_code, {200, 302})
-
-        response = self.client.post(reverse("announce"), {"email": "USER@EXAMPLE.COM"})
-        self.assertRedirects(response, reverse("thanks_subscribe"), fetch_redirect_response=False)
-        self.assertTrue(EmailSubscriber.objects.filter(email="user@example.com").exists())
-
-        response = self.client.get(reverse("thanks_subscribe"))
-        self.assertEqual(response.status_code, 200)
-
-        response = self.client.get(reverse("thanks_subscribe"))
-        self.assertRedirects(response, reverse("announce"))
-
 
 class AiServiceUnitTests(TestCase):
     def test_worker_executes_supported_task_types_without_external_calls(self):

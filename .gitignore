@@ -14,7 +14,7 @@ __pycache__/
 .env.telegram.local
 
 # Virtual environments
-venv/
+.venv/
 env/
 
 # Django static and media files
