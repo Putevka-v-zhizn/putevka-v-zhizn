@@ -7,6 +7,25 @@
 {% block content %}
     <h1 class="h5 text-center mb-4">Мои Документы</h1>
 
+    {% if document_instruction and document_instruction.is_active %}
+        <div class="container mb-4">
+            <div class="alert alert-info d-flex align-items-center justify-content-between flex-wrap gap-3 mb-0">
+                <div>
+                    <strong>{{ document_instruction.title }}</strong><br>
+                    {{ document_instruction.text|linebreaksbr }}
+                </div>
+                {% if document_instruction.url %}
+                    <a href="{{ document_instruction.url }}"
+                       target="_blank"
+                       rel="noopener"
+                       class="btn btn-primary">
+                        {{ document_instruction.button_text }}
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+
     {% if messages %}
         <div class="container mb-3">
             {% for message in messages %}

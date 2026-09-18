@@ -2,14 +2,27 @@ from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
 
-from .models import Document, DocumentType, DocTemplate
+from .models import Document, DocumentInstruction, DocumentType, DocTemplate
+
+
+@admin.register(DocumentInstruction)
+class DocumentInstructionAdmin(admin.ModelAdmin):
+    list_display = ("title", "is_active", "updated_at")
+    list_filter = ("is_active",)
+    search_fields = ("title", "text", "url")
+    ordering = ("-updated_at",)
+
+    def has_add_permission(self, request):
+        if DocumentInstruction.objects.exists():
+            return False
+        return super().has_add_permission(request)
 
 
 @admin.register(DocumentType)
 class DocumentTypeAdmin(admin.ModelAdmin):
-    list_display = ('name', 'sort_order', 'is_active', 'documents_count')
-    list_editable = ('sort_order', 'is_active')
-    list_filter = ('is_active',)
+    list_display = ('name', 'sort_order', 'is_active', 'available_to_alternative', 'documents_count')
+    list_editable = ('sort_order', 'is_active', 'available_to_alternative')
+    list_filter = ('is_active', 'available_to_alternative')
     search_fields = ('name', 'description')
     ordering = ('sort_order', 'name')
 

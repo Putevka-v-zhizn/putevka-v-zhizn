@@ -590,8 +590,14 @@ class UserPersonalData(models.Model):
     phone = models.CharField("Телефон", max_length=30, blank=True)
     email = models.EmailField("E-mail", blank=True)
 
-    inn = models.CharField("ИНН", max_length=20, blank=True)
+    snils = models.CharField("СНИЛС", max_length=20, blank=True)
 
+    submitted_by_user_at = models.DateTimeField(
+        "Заполнено пользователем",
+        blank=True,
+        null=True,
+        editable=False,
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

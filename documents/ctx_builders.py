@@ -41,8 +41,8 @@ def base_user_context(user: User):
             "bik": pd.bank_bik if pd else "",
             "correspondent": pd.bank_correspondent_account if pd else "",
         },
-        "tax": {
-            "inn": pd.inn if pd else "",
+        "personal": {
+            "snils": pd.snils if pd else "",
         }
     }
 

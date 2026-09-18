@@ -32,7 +32,7 @@
                             <div id="personalContacts" class="accordion-collapse collapse show" data-bs-parent="#personalDataAccordion">
                                 <div class="accordion-body"><div class="row g-3">
                                     {% for field in personal_data_form %}
-                                        {% if field.name == 'last_name' or field.name == 'first_name' or field.name == 'middle_name' or field.name == 'phone' or field.name == 'email' or field.name == 'inn' %}
+                                        {% if field.name == 'last_name' or field.name == 'first_name' or field.name == 'middle_name' or field.name == 'phone' or field.name == 'email' or field.name == 'snils' %}
                                             <div class="col-md-6 col-xl-4">
                                                 <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}
                                                 {% for error in field.errors %}<div class="text-danger small field-error">{{ error }}</div>{% endfor %}

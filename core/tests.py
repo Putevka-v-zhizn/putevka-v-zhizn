@@ -532,6 +532,8 @@ class CandidateApplicationFlowTests(IntegrationTestCase):
         math = Subject.objects.create(name="Mathematics", slug="math")
         school = School.objects.create(name="Online School")
         course = Course.objects.create(school=school, subject=math, title="Exam prep")
+        self.user.user_info.status = "SCHOLAR"
+        self.user.user_info.save(update_fields=["status"])
 
         response = self.client.post(
             reverse("study:select_course", args=[course.id]),
@@ -1038,7 +1040,7 @@ class DocumentHelperTests(IntegrationTestCase):
         personal_data.bank_account = "40817"
         personal_data.bank_bik = "044525225"
         personal_data.bank_correspondent_account = "30101"
-        personal_data.inn = "1234567890"
+        personal_data.snils = "123-456-789 00"
         personal_data.save()
 
         context = base_user_context(user)
@@ -1495,7 +1497,7 @@ class StaffPageSmokeTests(IntegrationTestCase):
                 "registration_address": "г. Томск, ул. Ленина, 1",
                 "phone": "+79990000000",
                 "email": "anna@example.com",
-                "inn": "123456789012",
+                "snils": "123-456-789 00",
                 "bank_name": "Банк",
                 "bank_account": "40817810000000000000",
                 "bank_bik": "044525225",
@@ -1508,7 +1510,7 @@ class StaffPageSmokeTests(IntegrationTestCase):
         personal_data.refresh_from_db()
         self.assertEqual(personal_data.passport_series, "1234")
         self.assertEqual(personal_data.passport_number, "567890")
-        self.assertEqual(personal_data.inn, "123456789012")
+        self.assertEqual(personal_data.snils, "123-456-789 00")
         self.assertEqual(personal_data.bank_bik, "044525225")
 
     def test_staff_collection_and_json_pages_render(self):
@@ -2638,6 +2640,8 @@ class DocumentAndStudyPageFlowTests(IntegrationTestCase):
     def setUp(self):
         super().setUp()
         self.user = self.create_finished_candidate("study-docs@example.com")
+        self.user.user_info.status = "SCHOLAR"
+        self.user.user_info.save(update_fields=["status"])
         self.client.force_login(self.user)
         self.subject = Subject.objects.create(name="Math", slug="math")
         self.school = School.objects.create(name="School A", description="STEM")
