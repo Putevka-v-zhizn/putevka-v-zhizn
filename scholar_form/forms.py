@@ -587,7 +587,7 @@ class UserPersonalDataForm(forms.ModelForm):
             "bank_correspondent_account",
             "phone",
             "email",
-            "inn",
+            "snils",
         ]
         widgets = {
             "passport_issued_at": forms.DateInput(

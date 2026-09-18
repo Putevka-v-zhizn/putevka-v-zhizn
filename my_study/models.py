@@ -35,6 +35,10 @@ class Course(models.Model):
     subject = models.ForeignKey(Subject, on_delete=models.PROTECT, related_name="courses")
     description = models.TextField(blank=True)
     link = models.URLField(blank=True)
+    available_to_alternative = models.BooleanField(
+        "Доступен альтернативному треку",
+        default=False,
+    )
 
     class Meta:
         unique_together = ("school", "title")

@@ -22,7 +22,7 @@ class FamilyIncomeUserFlowTests(TestCase):
         self.user = User.objects.create_user(username="finalist", password="password")
         self.info = UserInfo.objects.create(user=self.user, status="FINAL STAGE")
         self.client.force_login(self.user)
-        self.year = IncomeYear.objects.get(year=2025)
+        self.year, _ = IncomeYear.objects.get_or_create(year=2025)
 
     def _case(self):
         return FamilyIncomeCase.objects.get(user_info=self.info)
@@ -315,7 +315,7 @@ class FamilyIncomeStaffViewTests(TestCase):
         event = self.case.audit_events.first()
         self.assertEqual(event.before["amount_per_member"], "1234.50")
         self.assertEqual(event.actor, editor)
-        other_year = IncomeYear.objects.get(year=2026)
+        other_year, _ = IncomeYear.objects.get_or_create(year=2026)
         self._save_decision(year=other_year.pk)
         self.assertEqual(self.case.decisions.count(), 1)
         self.assertIsNone(self.case.decisions.get().year_id)
@@ -395,7 +395,7 @@ class FamilyIncomeStaffViewTests(TestCase):
             family_characteristics="Полная семья",
             status=FamilyIncomeCase.Status.PENDING_REVIEW,
         )
-        self.year = IncomeYear.objects.get(year=2025)
+        self.year, _ = IncomeYear.objects.get_or_create(year=2025)
 
     def _document(self, category, *, comment="Комментарий"):
         document = Document.objects.create(

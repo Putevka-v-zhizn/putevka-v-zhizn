@@ -1,8 +1,5 @@
 services:
   web:
-    dns:
-      - 1.1.1.1
-      - 8.8.8.8
     build: .
     volumes:
       - .:/app

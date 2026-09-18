@@ -21,6 +21,11 @@ from django.urls import path, include
 
 import core.views
 
+handler400 = "core.error_views.bad_request"
+handler403 = "core.error_views.permission_denied"
+handler404 = "core.error_views.page_not_found"
+handler500 = "core.error_views.server_error"
+
 urlpatterns = [
                   path('admin/send-notification-to-users/', core.views.send_notification_to_users,
                        name='send_notification_to_users'),

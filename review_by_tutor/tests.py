@@ -45,7 +45,7 @@ class StaffUsersExportTests(TestCase):
             family_characteristics="Многодетная семья",
             status=FamilyIncomeCase.Status.PENDING_REVIEW,
         )
-        year = IncomeYear.objects.get(year=2025)
+        year, _ = IncomeYear.objects.get_or_create(year=2025)
         for amount, suffix in ((Decimal("10000.00"), "first"), (Decimal("2000.00"), "second")):
             document = Document.objects.create(
                 user=candidate,

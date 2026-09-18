@@ -4,7 +4,7 @@ import uuid
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.fields import GenericRelation
 from django.core.exceptions import ValidationError
-from django.core.validators import FileExtensionValidator
+from django.core.validators import FileExtensionValidator, URLValidator
 from django.db import models
 
 from scholar_form.models import StaffNote
@@ -16,11 +16,44 @@ def upload_to_path(instance, filename):
     return os.path.join('documents', instance.user.username, new_filename)
 
 
+class DocumentInstruction(models.Model):
+    is_active = models.BooleanField("Показывать плашку", default=True)
+    title = models.CharField("Заголовок", max_length=120, default="Инструкция к документам")
+    text = models.TextField(
+        "Текст",
+        blank=True,
+        default="Перед загрузкой документов ознакомьтесь с инструкцией.",
+    )
+    url = models.URLField(
+        "Ссылка на инструкцию",
+        blank=True,
+        default="",
+        validators=[URLValidator()],
+    )
+    button_text = models.CharField("Текст кнопки", max_length=60, default="Открыть инструкцию")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Инструкция к документам"
+        verbose_name_plural = "Инструкция к документам"
+
+    def __str__(self):
+        return self.title
+
+    @classmethod
+    def get_current(cls):
+        return cls.objects.filter(is_active=True).order_by("-updated_at").first()
+
+
 class DocumentType(models.Model):
     name = models.CharField("Название", max_length=100, unique=True)
     description = models.TextField("Пояснение для пользователя", blank=True)
     sort_order = models.PositiveIntegerField("Порядок отображения", default=0)
     is_active = models.BooleanField("Активен", default=True)
+    available_to_alternative = models.BooleanField(
+        "Доступен альтернативному треку",
+        default=False,
+    )
 
     class Meta:
         ordering = ("sort_order", "name", "pk")

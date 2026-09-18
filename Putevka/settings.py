@@ -34,7 +34,8 @@ AI_FILE_TOKEN_MAX_AGE = int(os.getenv("AI_FILE_TOKEN_MAX_AGE", "3600"))
 TELEGRAM_SERVICE_TOKEN = os.getenv("TELEGRAM_SERVICE_TOKEN", "")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEBUG", "true").lower() in {"1", "true", "yes", "on"}
+DEBUG = os.getenv("DEBUG", "false").lower() in {"1", "true", "yes", "on"}
+CSRF_FAILURE_VIEW = "core.error_views.csrf_failure"
 
 # Controls only the final submission of a candidate questionnaire. Existing
 # submitted questionnaires and every later selection stage remain available.

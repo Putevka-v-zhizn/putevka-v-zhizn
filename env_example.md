@@ -28,6 +28,9 @@ TELEGRAM_WORKER_LEASE_SECONDS=120
 
 # Common Settings
 
+DEBUG=false # На сервере обязательно false; для локальной разработки явно задайте DEBUG=true
+ALLOWED_HOSTS=localhost,127.0.0.1 # На сервере укажите домен приложения
+
 BASE_URL= # Base app URL, for example https://example.com
 CONTACT_EMAIL=talents@putevka-v-zhizn.ru # Shared address for participant questions
 APPLICATION_SUBMISSIONS_OPEN=true # Set to false to close final questionnaire submission
