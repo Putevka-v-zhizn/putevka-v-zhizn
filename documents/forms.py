@@ -3,6 +3,7 @@ import logging
 import magic
 from django import forms
 
+from .access import available_documents_for
 from .models import Document
 
 logger = logging.getLogger(__name__)
@@ -20,10 +21,13 @@ class AttachDocumentsForm(forms.Form):
         super().__init__(*args, **kwargs)
 
         if user:
-            self.fields['documents_to_attach'].queryset = Document.objects.filter(
-                user=user,
-                uploaded_by_staff=False,
-                is_deleted=False
+            self.fields['documents_to_attach'].queryset = available_documents_for(
+                user,
+                Document.objects.filter(
+                    user=user,
+                    uploaded_by_staff=False,
+                    is_deleted=False,
+                ),
             ).order_by('-uploaded_at')
 
             self.fields['documents_to_attach'].label_from_instance = self._get_document_label

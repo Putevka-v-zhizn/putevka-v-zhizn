@@ -2,12 +2,14 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from core.decorators import ensure_registration_gate
+from .access import available_courses_for, study_access_required
 from .forms import CourseFilterForm, CourseSelectionForm, UniversityPriorityForm, AssessmentResultForm
 from .models import School, Course, CourseSelection, UniversityPriority, AssessmentResult, Subject, ProgressTrackerFile
 
@@ -15,12 +17,16 @@ logger = logging.getLogger(__name__)
 
 
 @login_required
+@study_access_required
 def schools_and_courses(request):
     subjects = Subject.objects.all()
     schools = School.objects.all()
 
     form = CourseFilterForm(request.GET or None)
-    qs = Course.objects.select_related("school", "subject")
+    qs = available_courses_for(
+        request.user,
+        Course.objects.select_related("school", "subject"),
+    )
 
     if form.is_valid():
         subject = form.cleaned_data.get("subject")
@@ -45,6 +51,8 @@ def schools_and_courses(request):
         .select_related("course__school", "course__subject")
         .order_by("-created_at")
     )
+    if request.user.user_info.status == "ALTERNATIVE":
+        selections = selections.filter(course__available_to_alternative=True)
 
     return render(request, "study/schools.html", {
         "subjects": subjects,
@@ -58,10 +66,13 @@ def schools_and_courses(request):
     })
 
 
-@ensure_registration_gate('protected')
 @login_required
+@study_access_required
+@ensure_registration_gate('protected')
 def select_course(request, course_id):
     course = get_object_or_404(Course.objects.select_related("school", "subject"), id=course_id)
+    if request.user.user_info.status == "ALTERNATIVE" and not course.available_to_alternative:
+        raise PermissionDenied
     if request.method == "POST":
         form = CourseSelectionForm(request.POST)
         if form.is_valid():
@@ -87,12 +98,15 @@ def select_course(request, course_id):
     return render(request, "study/select_course.html", {"course": course, "form": form})
 
 
-@ensure_registration_gate('protected')
 @login_required
+@study_access_required
+@ensure_registration_gate('protected')
 def unselect_course(request, course_id: int):
     if request.method != "POST":
         return redirect("study:schools")
     course = get_object_or_404(Course, id=course_id)
+    if request.user.user_info.status == "ALTERNATIVE" and not course.available_to_alternative:
+        raise PermissionDenied
     sel = CourseSelection.objects.filter(user=request.user, course=course).first()
     if not sel:
         messages.info(request, "Этот курс не был выбран.")
@@ -102,8 +116,9 @@ def unselect_course(request, course_id: int):
     return redirect("study:schools")
 
 
-@ensure_registration_gate('protected')
 @login_required
+@study_access_required
+@ensure_registration_gate('protected')
 def universities(request):
     priorities = (UniversityPriority.objects
                   .filter(user=request.user)
@@ -149,6 +164,8 @@ def universities(request):
 
 
 @login_required
+@study_access_required
+@ensure_registration_gate('protected')
 def delete_university_priority(request, pk):
     obj = get_object_or_404(UniversityPriority, pk=pk, user=request.user)
     obj.delete()
@@ -156,8 +173,9 @@ def delete_university_priority(request, pk):
     return redirect("study:universities")
 
 
-@ensure_registration_gate('protected')
 @login_required
+@study_access_required
+@ensure_registration_gate('protected')
 def assessments(request):
     results = AssessmentResult.objects.filter(user=request.user).select_related("subject").order_by("-date", "-id")
     tracker = ProgressTrackerFile.objects.order_by("-updated_at").first()

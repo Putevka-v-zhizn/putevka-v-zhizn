@@ -17,9 +17,15 @@ from core.decorators import ensure_registration_gate
 from review_by_tutor.utils.contact_form import handle_send_notification
 from review_by_tutor.views import _staff_check
 from .ctx_builders import merge_context, base_user_context
+from .access import (
+    available_documents_for,
+    available_document_types_for,
+    ensure_document_available,
+    ensure_document_type_available,
+)
 from .decorators import rate_limit_uploads
 from .forms import DocumentUploadForm, SlotDocumentUploadForm, AttachDocumentsForm, build_params_form
-from .models import Document, DocumentType, DocTemplate
+from .models import Document, DocumentInstruction, DocumentType, DocTemplate
 from .services import render_docx_bytes
 from scholar_form.services.yandex_disk import (
     YandexDiskError,
@@ -35,8 +41,10 @@ User = get_user_model()
 
 @login_required
 def serve_document(request, document_id):
-    document = get_object_or_404(Document, pk=document_id)
+    document = get_object_or_404(Document.objects.select_related("document_type"), pk=document_id)
     if request.user == document.user or request.user.is_staff:
+        if not request.user.is_staff:
+            ensure_document_available(request.user, document)
         if document.yandex_disk_path:
             try:
                 return redirect(get_download_url(
@@ -83,15 +91,21 @@ def serve_document(request, document_id):
 @login_required
 @rate_limit_uploads(rate_limit_seconds=1, max_uploads=1)
 def documents_dashboard(request):
-    all_user_documents = Document.objects.filter(user=request.user, uploaded_by_staff=False, is_deleted=False).order_by(
-        '-uploaded_at')
+    all_user_documents = available_documents_for(
+        request.user,
+        Document.objects.filter(user=request.user, uploaded_by_staff=False, is_deleted=False),
+    ).order_by('-uploaded_at')
     user_documents = all_user_documents.filter(document_type__isnull=True)
     staff_documents = Document.objects.filter(user=request.user, uploaded_by_staff=True, is_deleted=False).order_by(
         '-uploaded_at')
-    slot_document_qs = Document.objects.filter(
-        user=request.user, uploaded_by_staff=False, is_deleted=False
+    slot_document_qs = available_documents_for(
+        request.user,
+        Document.objects.filter(user=request.user, uploaded_by_staff=False, is_deleted=False),
     ).order_by('-uploaded_at')
-    document_types = DocumentType.objects.filter(is_active=True).prefetch_related(
+    document_types = available_document_types_for(
+        request.user,
+        DocumentType.objects.filter(is_active=True),
+    ).prefetch_related(
         Prefetch('documents', queryset=slot_document_qs, to_attr='user_slot_documents')
     )
     archived_slot_documents = all_user_documents.filter(document_type__is_active=False).select_related('document_type')
@@ -108,6 +122,7 @@ def documents_dashboard(request):
                 pk=request.POST.get('document_type_id'),
                 is_active=True,
             )
+            ensure_document_type_available(request.user, document_type)
             form = SlotDocumentUploadForm(
                 request.POST,
                 request.FILES,
@@ -218,6 +233,7 @@ def documents_dashboard(request):
         'has_user_documents': all_user_documents.exists(),
         'staff_documents': staff_documents,
         'attach_documents_form': attach_documents_form,
+        'document_instruction': DocumentInstruction.get_current(),
         'active': 'documents_dashboard',
     }
     return render(request, 'documents/documents_dashboard.html', context)
@@ -225,7 +241,12 @@ def documents_dashboard(request):
 
 @login_required
 def delete_document(request, document_id):
-    document = get_object_or_404(Document, pk=document_id, user=request.user)
+    document = get_object_or_404(
+        Document.objects.select_related("document_type"),
+        pk=document_id,
+        user=request.user,
+    )
+    ensure_document_available(request.user, document)
 
     document.is_deleted = True
     document.save()

@@ -439,13 +439,24 @@ def personal_info(request):
     planned_exams_labels = [str(x) for x in planned_exams_qs]
 
     if request.method == "POST":
-        profile_form = UserProfileForm(request.POST, request.FILES, instance=profile)
-        personal_form = UserPersonalDataForm(request.POST, request.FILES, instance=personal_data)
-
-        if profile_form.is_valid() and personal_form.is_valid():
-            profile_form.save()
-            personal_form.save()
+        form_type = request.POST.get("form_type", "personal_data")
+        if form_type == "avatar":
+            profile_form = UserProfileForm(request.POST, request.FILES, instance=profile)
+            if profile_form.is_valid():
+                profile_form.save()
             return redirect("personal_info")
+        elif personal_data.submitted_by_user_at:
+            return redirect("personal_info")
+        else:
+            profile_form = UserProfileForm(request.POST, request.FILES, instance=profile)
+            personal_form = UserPersonalDataForm(request.POST, request.FILES, instance=personal_data)
+
+            if profile_form.is_valid() and personal_form.is_valid():
+                profile_form.save()
+                personal_data = personal_form.save(commit=False)
+                personal_data.submitted_by_user_at = timezone.now()
+                personal_data.save()
+                return redirect("personal_info")
     else:
         profile_form = UserProfileForm(instance=profile)
         personal_form = UserPersonalDataForm(instance=personal_data)
@@ -461,6 +472,7 @@ def personal_info(request):
             "telegram_account": telegram_account,
             "telegram_bot_link": telegram_bot_link,
             "planned_exams_labels": planned_exams_labels,
+            "personal_data_completed": bool(personal_data.submitted_by_user_at),
         },
     )
 

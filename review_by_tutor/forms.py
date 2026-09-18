@@ -268,7 +268,7 @@ class UserPersonalDataStaffForm(forms.ModelForm):
             "last_name", "first_name", "middle_name",
             "passport_series", "passport_number", "passport_issued_at",
             "passport_issued_by", "passport_department_code", "registration_address",
-            "phone", "email", "inn",
+            "phone", "email", "snils",
             "bank_name", "bank_account", "bank_bik", "bank_correspondent_account",
         ]
         widgets = {

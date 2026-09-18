@@ -99,6 +99,7 @@
             <div class="col-lg-8">
                 <form method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
                     {% csrf_token %}
+                    <input type="hidden" name="form_type" id="profileFormType" value="personal_data">
                     {% render_field form.avatar class+="visually-hidden" %}
 
                     <!-- Ошибки формы -->
@@ -109,6 +110,7 @@
                         </div>
                     {% endif %}
 
+                    {% if user.user_info.status != "CANDIDATE" and not personal_data_completed %}
                     <div class="card shadow-sm border-0 mb-4">
                         <div class="card-header bg-white py-3">
                             <strong>Основные данные</strong>
@@ -135,7 +137,6 @@
                                 {% endif %}
                             </div>
                         </div>
-                        {% if user.user_info.status != "CANDIDATE" %}
                             <div class="alert alert-warning mb-4 small" role="alert">
                                 <i class="bi bi-exclamation-triangle-fill me-2"></i>
                                 Эти данные являются <strong>персональными и крайне важными</strong>.
@@ -185,9 +186,9 @@
                                     <i class="bi bi-check2-circle"></i> Сохранить
                                 </button>
                             </div>
-                            </form>
-                            </div>
-                        {% endif %}
+                    {% endif %}
+                </form>
+            </div>
         </div>
     </div>
 
@@ -227,6 +228,8 @@
                 // Автосабмит
                 const form = input.closest('form');
                 if (form) {
+                    const formType = document.getElementById('profileFormType');
+                    if (formType) formType.value = 'avatar';
                     form.submit();
                 }
             });
