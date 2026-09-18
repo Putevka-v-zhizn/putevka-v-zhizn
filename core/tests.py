@@ -66,6 +66,7 @@ from scholar_form.services import yandex_disk
 settings.MIGRATION_MODULES = {
     "core": None,
     "documents": None,
+    "family_income": None,
     "my_study": None,
     "review_by_tutor": None,
     "scholar_form": None,
@@ -121,6 +122,7 @@ class IntegrationTestCase(TestCase):
             first_name="Ivan",
             last_name="Petrov",
             selection_step=UserInfo.SelectionStep.ML,
+            status="FINAL STAGE",
         )
         RegistrationPersonalData.objects.create(
             user=user,

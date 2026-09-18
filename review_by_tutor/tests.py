@@ -10,6 +10,11 @@ from django.test import TestCase, override_settings
 from openpyxl import Workbook, load_workbook
 
 from core.models import MotivationLetter, MotivationLetterRubricReview
+from documents.models import Document
+from family_income.models import (
+    FamilyIncomeCase, FamilyIncomeDecision, FamilyIncomeDocument,
+    IncomeEvidence, IncomeYear,
+)
 from my_study.models import Course, CourseSelection, School, Subject
 from review_by_tutor.models import Interview, InterviewResult, InterviewTemplate
 from review_by_tutor.services.interview_xlsx import (
@@ -19,8 +24,133 @@ from review_by_tutor.services.interview_xlsx import (
     import_interview_result_xlsx,
 )
 from scholar_form.models import ScholarVideo, UserInfo
+from scholar_form.forms import FamilyForm
 
 TEMP_MEDIA_ROOT = tempfile.mkdtemp()
+
+
+class StaffUsersExportTests(TestCase):
+    def test_export_includes_family_income_sheet_without_changing_main_sheet(self):
+        staff = get_user_model().objects.create_user(
+            username="export-staff", password="password", is_staff=True,
+        )
+        candidate = get_user_model().objects.create_user(
+            username="family-export", email="family@example.test", password="password",
+        )
+        user_info = UserInfo.objects.create(user=candidate, status="FINAL STAGE")
+        case = FamilyIncomeCase.objects.create(
+            user_info=user_info,
+            family_members_count=4,
+            family_members_description="Мама, папа, ребёнок и бабушка",
+            family_characteristics="Многодетная семья",
+            status=FamilyIncomeCase.Status.PENDING_REVIEW,
+        )
+        year, _ = IncomeYear.objects.get_or_create(year=2025)
+        for amount, suffix in ((Decimal("10000.00"), "first"), (Decimal("2000.00"), "second")):
+            document = Document.objects.create(
+                user=candidate,
+                caption=f"income-{suffix}",
+                user_file_name=f"income-{suffix}.pdf",
+                yandex_disk_path=f"disk:/income-{suffix}.pdf",
+            )
+            income_document = FamilyIncomeDocument.objects.create(
+                case=case,
+                document=document,
+                category=FamilyIncomeDocument.Category.INCOME,
+                candidate_comment="Справка о доходе",
+            )
+            IncomeEvidence.objects.create(
+                family_income_document=income_document,
+                year=year,
+                owner_name="Родитель",
+                average_monthly_amount=amount,
+            )
+        FamilyIncomeDecision.objects.create(
+            case=case,
+            year=year,
+            amount_per_member=Decimal("2750.00"),
+            comment="Сумма скорректирована после проверки справок.",
+        )
+        self.client.force_login(staff)
+
+        response = self.client.get(
+            reverse("staff_users_export_xlsx"),
+            {"registration_confirmed": "0"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response["Content-Type"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        workbook = load_workbook(BytesIO(response.content), data_only=True)
+        self.assertEqual(workbook["Пользователи"]["A1"].value, "Email")
+        self.assertIn("Семья и доход", workbook.sheetnames)
+
+        family_sheet = workbook["Семья и доход"]
+        headers = [cell.value for cell in family_sheet[1]]
+        row = next(
+            values for values in family_sheet.iter_rows(min_row=2, values_only=True)
+            if values[0] == candidate.pk and values[3] == 2025
+        )
+        self.assertEqual(row[headers.index("Количество членов семьи")], 4)
+        self.assertEqual(row[headers.index("Характеристика семьи")], "Многодетная семья")
+        self.assertEqual(row[headers.index("Автоматический среднемесячный доход семьи")], 12000)
+        self.assertEqual(row[headers.index("Автоматический среднемесячный доход на члена семьи")], 3000)
+        self.assertEqual(row[headers.index("Ручной среднемесячный доход на члена семьи")], 2750)
+        self.assertEqual(
+            row[headers.index("Комментарий к ручной корректировке")],
+            "Сумма скорректирована после проверки справок.",
+        )
+
+    def test_export_handles_an_empty_filtered_result(self):
+        staff = get_user_model().objects.create_user(
+            username="empty-export-staff", password="password", is_staff=True,
+        )
+        self.client.force_login(staff)
+
+        response = self.client.get(
+            reverse("staff_users_export_xlsx"),
+            {"q": "no-such-export-user", "registration_confirmed": "0"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        workbook = load_workbook(BytesIO(response.content), data_only=True)
+        self.assertEqual(workbook["Пользователи"].max_row, 1)
+        self.assertEqual(workbook["Семья и доход"].max_row, 1)
+
+
+class LegacyFamilyStepRegressionTests(TestCase):
+    def test_step_four_family_form_still_saves_legacy_questionnaire_fields(self):
+        user = get_user_model().objects.create_user(username="legacy-family-step")
+        user_info = UserInfo.objects.create(user=user)
+        form = FamilyForm(
+            data={
+                "mother": "Иванова Мария",
+                "father": "Иванов Сергей",
+                "legal_guardian": "",
+                "siblings_count": "1",
+                "siblings_info": "Брат, ученик",
+                "family_size": "4",
+                "income_per_member": "15000",
+                "is_low_income": "Нет",
+                "receives_subsidy": "",
+                "family_material_status": UserInfo.FamilyMaterialStatus.CLOTHES_HARD,
+                "other_factors": "",
+                "has_pc_with_internet": "Да",
+            },
+            instance=user_info,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+        user_info.refresh_from_db()
+        self.assertEqual(user_info.family_size, 4)
+        self.assertEqual(user_info.income_per_member, "15000")
+        self.assertEqual(
+            user_info.family_material_status,
+            UserInfo.FamilyMaterialStatus.CLOTHES_HARD,
+        )
 
 
 @override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)

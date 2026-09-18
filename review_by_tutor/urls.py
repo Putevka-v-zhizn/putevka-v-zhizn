@@ -1,6 +1,7 @@
 from django.urls import path
 
 from documents import views as docviews
+from family_income import staff_views as family_income_staff_views
 from . import views, service_views
 
 urlpatterns = [
@@ -9,6 +10,11 @@ urlpatterns = [
     path("profiles/<int:user_id>/", views.staff_profile_detail, name="staff_profile_detail"),
     path("video/<int:user_id>/", views.staff_video_detail, name="staff_video_detail"),
     path("documents/<int:user_id>/", views.staff_documents_detail, name="staff_documents_detail"),
+    path(
+        "family-income/<int:user_id>/",
+        family_income_staff_views.staff_family_income,
+        name="staff_family_income",
+    ),
     path("study/<int:user_id>/", views.staff_study_detail, name="staff_study_detail"),
     path("interview/<int:user_id>/", views.interview_detail, name="interview_detail"),
     path("interview/<int:user_id>/video-stream/", views.interview_video_stream, name="interview_video_stream"),

@@ -1,0 +1,161 @@
+{% extends "staff_templates/base.html" %}
+
+{% block title %}Семья и доход — модерация{% endblock %}
+
+{% block content %}
+  <div class="container py-4">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-4">
+      <div>
+        <h1 class="h3 mb-1">Семья и доход</h1>
+        <div class="text-muted">{{ user_obj.get_full_name|default:user_obj.username }}</div>
+      </div>
+      <span class="badge text-bg-secondary">ID {{ user_obj.id }}</span>
+      <a class="btn btn-sm btn-outline-secondary ms-md-auto" href="{% url 'staff_scholar_dossier' user_obj.id %}">К сводке</a>
+    </div>
+
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+
+    <section class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Состав и характеристика семьи</span>
+        <span class="badge {% if case.status == 'revision' %}text-bg-warning{% elif case.status == 'approved' %}text-bg-success{% elif case.status == 'pending_review' %}text-bg-primary{% else %}text-bg-secondary{% endif %}">{{ case.get_status_display }}</span>
+      </div>
+      <div class="card-body">
+        <form method="post" class="row g-3">
+          {% csrf_token %}
+          <input type="hidden" name="form_type" value="update_case">
+          {% for field in case_form %}
+            <div class="{% if field.name == 'family_members_count' %}col-md-4{% else %}col-12{% endif %}">
+              <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+          {% endfor %}
+          {% for error in case_form.non_field_errors %}<div class="col-12 text-danger small">{{ error }}</div>{% endfor %}
+          <div class="col-12"><button class="btn btn-primary">Сохранить сведения о семье</button></div>
+        </form>
+      </div>
+    </section>
+
+    <section class="card mb-4">
+      <div class="card-header">Итоговый доход</div>
+      <div class="card-body">
+        <p class="text-muted">Текущий среднемесячный доход на одного члена семьи, рассчитанный сотрудником вручную. Итог и пояснение видны только сотрудникам.</p>
+        {% include "family_income/decision_form.html" with form=decision_form %}
+      </div>
+    </section>
+
+    <section class="card border-success mb-4">
+      <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div>
+          <h2 class="h5 mb-1">Решение по карточке</h2>
+          {% if case.status == 'approved' %}
+            <p class="mb-0 text-success">Карточка подтверждена. Итоговый доход можно изменить. Для повторной проверки нажмите «Вернуть на проверку».</p>
+          {% elif case.status == 'pending_review' and unapproved_documents_count %}
+            <p class="mb-0 text-muted">Перед подтверждением завершите проверку документов: осталось {{ unapproved_documents_count }}.</p>
+          {% elif case.status == 'pending_review' %}
+            <p class="mb-0 text-muted">Все документы подтверждены или документов нет. Карточку можно подтвердить.</p>
+          {% else %}
+            <p class="mb-0 text-muted">Карточку можно подтвердить после отправки соискателем на проверку.</p>
+          {% endif %}
+        </div>
+        {% if case.status == 'approved' %}
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="form_type" value="reopen_case">
+            <button class="btn btn-outline-primary">Вернуть на проверку</button>
+          </form>
+        {% elif case.status == 'pending_review' and not unapproved_documents_count %}
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="form_type" value="approve_case">
+            <button class="btn btn-success">Подтвердить карточку</button>
+          </form>
+        {% endif %}
+      </div>
+    </section>
+
+    {% for section in sections %}
+      <section class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>{{ section.label }}</span>
+          <span class="badge text-bg-light">{{ section.items|length }} шт.</span>
+        </div>
+        <div class="card-body">
+          {% for entry in section.items %}
+            {% with item=entry.item %}
+              <article class="border rounded p-3 {% if item.review_status == 'clarification' %}border-warning bg-warning-subtle{% endif %} {% if not forloop.last %}mb-3{% endif %}">
+                <div class="d-flex flex-wrap gap-2 align-items-start mb-3">
+                  <div class="me-auto">
+                    <a href="{% url 'serve_document' item.document_id %}" target="_blank" rel="noopener">
+                      {{ item.document.user_file_name|default:item.document.caption }}
+                    </a>
+                    <div class="small text-muted">Добавлен {{ item.created_at|date:"d.m.Y H:i" }}</div>
+                  </div>
+                  <span class="badge {% if item.review_status == 'clarification' %}text-bg-warning{% elif item.review_status == 'approved' %}text-bg-success{% else %}text-bg-secondary{% endif %}">{{ item.get_review_status_display }}</span>
+                </div>
+
+                {% if item.review_status == 'clarification' %}
+                  <div class="alert {% if item.candidate_response_at %}alert-info{% else %}alert-warning{% endif %} small py-2 mb-3">
+                    <div>Запрос уточнения: {{ item.clarification_requested_at|date:"d.m.Y H:i"|default:"дата не зафиксирована" }}.</div>
+                    {% if item.candidate_response_at %}<div>Соискатель сохранил изменения: {{ item.candidate_response_at|date:"d.m.Y H:i" }}. Ждёт повторной отправки карточки.</div>{% else %}<div>Соискатель ещё не сохранил изменения.</div>{% endif %}
+                  </div>
+                {% endif %}
+
+                {% if item.category == 'income' and entry.income_form %}
+                  <form method="post" class="row g-3 border-top pt-3 mb-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_type" value="update_income">
+                    <input type="hidden" name="document_id" value="{{ item.pk }}">
+                    {% for field in entry.income_form %}
+                      <div class="{% if field.name == 'absence_reason' or field.name == 'staff_decision_comment' %}col-12{% else %}col-md-6 col-xl-4{% endif %}">
+                        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                      </div>
+                    {% endfor %}
+                    {% for error in entry.income_form.non_field_errors %}<div class="col-12 text-danger small">{{ error }}</div>{% endfor %}
+                    <div class="col-12"><button class="btn btn-outline-primary btn-sm">Сохранить сведения о доходе</button></div>
+                  </form>
+                {% elif item.category == 'social_benefit' %}
+                  <dl class="row small mb-3">
+                    <dt class="col-sm-3">Чья справка</dt><dd class="col-sm-9">{{ item.social_benefit_evidence.recipient_name }}</dd>
+                    {% if item.social_benefit_evidence.benefit_description %}<dt class="col-sm-3">Описание выплат</dt><dd class="col-sm-9">{{ item.social_benefit_evidence.benefit_description }}</dd>{% endif %}
+                  </dl>
+                {% else %}
+                  <div class="small text-muted mb-3">Комментарий пользователя</div>
+                  <div class="mb-3">{{ item.candidate_comment|linebreaksbr }}</div>
+                {% endif %}
+
+                <form method="post" class="row g-3 border-top pt-3">
+                  {% csrf_token %}
+                  <input type="hidden" name="form_type" value="update_document_review">
+                  <input type="hidden" name="document_id" value="{{ item.pk }}">
+                  <div class="col-md-4">
+                    <label class="form-label" for="{{ entry.review_form.review_status.id_for_label }}">{{ entry.review_form.review_status.label }}</label>
+                    {{ entry.review_form.review_status }}
+                    {% for error in entry.review_form.review_status.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label" for="{{ entry.review_form.staff_comment.id_for_label }}">{{ entry.review_form.staff_comment.label }}</label>
+                    {{ entry.review_form.staff_comment }}
+                    <div class="form-text">При статусе «Требуется уточнение» комментарий обязателен и будет показан соискателю.</div>
+                    {% for error in entry.review_form.staff_comment.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                  </div>
+                  {% for error in entry.review_form.non_field_errors %}<div class="col-12 text-danger small">{{ error }}</div>{% endfor %}
+                  <div class="col-12"><button class="btn btn-outline-secondary btn-sm">Сохранить проверку</button></div>
+                </form>
+              </article>
+            {% endwith %}
+          {% empty %}
+            <p class="text-muted mb-0">Документы пока не добавлены.</p>
+          {% endfor %}
+        </div>
+      </section>
+    {% endfor %}
+  </div>
+{% endblock %}

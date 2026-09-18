@@ -1,0 +1,33 @@
+{% extends 'core/base.html' %}
+{% block title %}Редактирование документа{% endblock %}
+{% block content %}
+{% include 'core/_messages.html' %}
+<div class="container px-3" style="max-width: 720px">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <h1 class="h3 mb-0">Редактирование документа</h1>
+    {% if item.review_status == 'clarification' %}<span class="badge text-bg-warning">Требуется уточнение</span>{% endif %}
+  </div>
+  {% if item.review_status == 'clarification' and item.staff_comment %}
+    <div class="alert alert-warning">
+      <div class="fw-semibold">Что нужно уточнить</div>
+      <div>{{ item.staff_comment|linebreaksbr }}</div>
+    </div>
+  {% endif %}
+  <form method="post" enctype="multipart/form-data" class="card">
+    <div class="card-body">
+      {% csrf_token %}
+      {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+      <p class="text-muted small">Файл можно заменить. Если заменять не нужно, оставьте это поле пустым.</p>
+      {% for field in form %}
+        <div class="mb-3">
+          <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.name == 'file' %} <span class="text-muted">(оставьте пустым, чтобы сохранить текущий)</span>{% endif %}</label>
+          {{ field }}
+          {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+        </div>
+      {% endfor %}
+      <button class="btn btn-primary">Сохранить изменения</button>
+      <a href="{% url 'family_income:page' %}" class="btn btn-outline-secondary">Отмена</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

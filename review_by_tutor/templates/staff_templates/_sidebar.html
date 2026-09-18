@@ -13,6 +13,8 @@
        href="{% url 'interview_detail' user_obj.id %}">Собеседование</a>
     <a class="list-group-item list-group-item-action d-flex align-items-center {% if active == 'documents_dashboard' %} active{% endif %}"
        href="{% url 'staff_documents_detail' user_obj.id %}">Документы</a>
+    <a class="list-group-item list-group-item-action d-flex align-items-center {% if active == 'family_income_staff' %} active{% endif %}"
+       href="{% url 'staff_family_income' user_obj.id %}">Семья и доход</a>
     <a class="list-group-item list-group-item-action d-flex align-items-center {% if active == 'documents_templates' %} active{% endif %}"
        href="{% url 'staff_docs_templates' user_obj.id %}">Шаблоны</a>
     <a class="list-group-item list-group-item-action d-flex align-items-center {% if active == 'study' %} active{% endif %}"

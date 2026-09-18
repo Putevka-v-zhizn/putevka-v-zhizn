@@ -41,7 +41,14 @@
         </div>
     {% endif %}
 
-    {% if user.user_info.status != "CANDIDATE" %}
+    {% if user.user_info.status == "FINAL STAGE" %}
+        <a class="list-group-item list-group-item-action d-flex align-items-center {% if active == 'family_income' %} active{% endif %}"
+           href="{% url 'family_income:page' %}">
+            Семья и доход
+        </a>
+    {% endif %}
+
+    {% if user.user_info.status == "FINAL STAGE" %}
         <a class="list-group-item list-group-item-action d-flex align-items-center {% if active == 'documents_dashboard' %} active{% endif %}"
            href="{% url 'documents_dashboard' %}">
             Документы
@@ -114,7 +121,14 @@
             </div>
         {% endif %}
 
-        {% if user.user_info.status != "CANDIDATE" %}
+        {% if user.user_info.status == "FINAL STAGE" %}
+            <a href="{% url 'family_income:page' %}"
+               class="text-center {% if active == 'family_income' %}text-primary{% else %}text-secondary{% endif %}">
+                <div class="small">Семья и доход</div>
+            </a>
+        {% endif %}
+
+        {% if user.user_info.status == "FINAL STAGE" %}
             <a href="{% url 'documents_dashboard' %}"
                class="text-center {% if active == 'documents_dashboard' %}text-primary{% else %}text-secondary{% endif %}">
                 <div class="small">Документы</div>

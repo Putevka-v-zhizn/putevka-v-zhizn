@@ -1,12 +1,18 @@
 from io import BytesIO
+from collections import defaultdict
+from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.db.models import Prefetch
 from django.http import HttpResponse
 from django.utils import timezone
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment
 from openpyxl.utils import get_column_letter
 
+from family_income.models import (
+    FamilyIncomeCase, FamilyIncomeDecision, FamilyIncomeDocument,
+)
 from review_by_tutor.services.staff_users import build_staff_users_queryset
 from review_by_tutor.views import _staff_check
 
@@ -35,10 +41,133 @@ def _bool(value):
     return "Да" if value else "Нет"
 
 
+FAMILY_INCOME_EXPORT_HEADERS = (
+    "ID пользователя",
+    "Email",
+    "Статус карточки",
+    "Год дохода",
+    "Количество членов семьи",
+    "Характеристика семьи",
+    "Автоматический среднемесячный доход семьи",
+    "Автоматический среднемесячный доход на члена семьи",
+    "Ручной среднемесячный доход на члена семьи",
+    "Комментарий к ручной корректировке",
+)
+
+
+def _append_family_income_sheet(workbook, users):
+    """Добавляет служебный лист, не меняя схему основного листа экспорта."""
+    ws = workbook.create_sheet("Семья и доход")
+    ws.append(FAMILY_INCOME_EXPORT_HEADERS)
+
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(vertical="top", wrap_text=True)
+    ws.row_dimensions[1].height = 42
+
+    user_ids = [user.pk for user in users]
+    cases = (
+        FamilyIncomeCase.objects
+        .filter(user_info__user_id__in=user_ids)
+        .select_related("user_info")
+        .prefetch_related(
+            Prefetch(
+                "family_income_documents",
+                queryset=(
+                    FamilyIncomeDocument.objects
+                    .filter(category=FamilyIncomeDocument.Category.INCOME)
+                    .select_related("income_evidence__year")
+                ),
+                to_attr="income_documents_for_export",
+            ),
+            Prefetch(
+                "decisions",
+                queryset=FamilyIncomeDecision.objects.select_related("year"),
+                to_attr="decisions_for_export",
+            ),
+        )
+    )
+    cases_by_user_id = {case.user_info.user_id: case for case in cases}
+
+    for user in users:
+        case = cases_by_user_id.get(user.pk)
+        if not case:
+            ws.append([user.pk, user.email, "", "", "", "", "", "", "", ""])
+            continue
+
+        automatic_total_by_year = defaultdict(Decimal)
+        years_with_automatic_amount = set()
+        years = set()
+        for item in case.income_documents_for_export:
+            evidence = getattr(item, "income_evidence", None)
+            if not evidence:
+                continue
+            year = evidence.year.year
+            years.add(year)
+            if evidence.average_monthly_amount is not None:
+                automatic_total_by_year[year] += evidence.average_monthly_amount
+                years_with_automatic_amount.add(year)
+
+        decisions_by_year = {
+            decision.year.year: decision
+            for decision in case.decisions_for_export
+        }
+        years.update(decisions_by_year)
+
+        if not years:
+            years = {None}
+
+        for year in sorted(years, key=lambda value: value is None):
+            has_automatic_amount = year in years_with_automatic_amount
+            automatic_total = automatic_total_by_year[year] if has_automatic_amount else None
+            automatic_per_member = (
+                automatic_total / case.family_members_count
+                if automatic_total is not None and case.family_members_count
+                else None
+            )
+            decision = decisions_by_year.get(year)
+            ws.append([
+                user.pk,
+                user.email,
+                case.get_status_display(),
+                year or "",
+                case.family_members_count,
+                case.family_characteristics,
+                automatic_total,
+                automatic_per_member,
+                decision.amount_per_member if decision else None,
+                decision.comment if decision else "",
+            ])
+
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = ws.dimensions
+    for row in ws.iter_rows():
+        for cell in row:
+            cell.alignment = Alignment(vertical="top", wrap_text=True)
+
+    for column in ("G", "H", "I"):
+        ws.column_dimensions[column].width = 22
+        for cell in ws[column][1:]:
+            cell.number_format = '#,##0.00 "₽"'
+
+    widths = {
+        "A": 14,
+        "B": 30,
+        "C": 18,
+        "D": 14,
+        "E": 20,
+        "F": 42,
+        "J": 42,
+    }
+    for column, width in widths.items():
+        ws.column_dimensions[column].width = width
+
+
 @login_required
 @user_passes_test(_staff_check)
 def export_users_xlsx(request):
     qs = build_staff_users_queryset(request)
+    users = list(qs)
 
     wb = Workbook()
     ws = wb.active
@@ -176,7 +305,7 @@ def export_users_xlsx(request):
         cell.font = Font(bold=True)
         cell.alignment = Alignment(vertical="top", wrap_text=True)
 
-    for user in qs.iterator(chunk_size=200):
+    for user in users:
         ui = getattr(user, "user_info", None)
         tg = getattr(user, "telegram_account", None)
         ml = getattr(user, "motivation_letter", None)
@@ -321,7 +450,11 @@ def export_users_xlsx(request):
                   video.yandex_disk_path if video and video.yandex_disk_path else (video.file.url if video and video.file else ""),
               ] + test_cells
 
+        if len(headers) != len(row):
+            raise ValueError(f"Header/row mismatch: {len(headers)} != {len(row)}")
         ws.append(row)
+
+    _append_family_income_sheet(wb, users)
 
     # Немного приводим лист в порядок
     ws.freeze_panes = "A2"
@@ -338,9 +471,6 @@ def export_users_xlsx(request):
         "D": 18,
         "E": 28,
     }
-
-    if len(headers) != len(row):
-        raise ValueError(f"Header/row mismatch: {len(headers)} != {len(row)}")
 
     for col, width in widths.items():
         ws.column_dimensions[col].width = width
