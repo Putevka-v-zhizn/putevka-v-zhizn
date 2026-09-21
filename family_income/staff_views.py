@@ -157,11 +157,17 @@ def staff_family_income(request, user_id: int):
             return redirect("staff_family_income", user_id=user_obj.pk)
         previous_status = case.status
         case.status = FamilyIncomeCase.Status.PENDING_REVIEW
-        case.save(update_fields=("status", "updated_at"))
+        previous_approved_at = case.approved_at
+        case.approved_at = None
+        case.save(update_fields=("status", "approved_at", "updated_at"))
         FamilyIncomeAuditEvent.objects.create(
             case=case, actor=request.user, action="reopen_case",
             target_model="FamilyIncomeCase", target_id=case.pk,
-            before={"status": previous_status}, after={"status": case.status},
+            before={
+                "status": previous_status,
+                "approved_at": previous_approved_at.isoformat() if previous_approved_at else None,
+            },
+            after={"status": case.status, "approved_at": None},
         )
         messages.success(request, "Карточка возвращена на проверку.")
         return redirect("staff_family_income", user_id=user_obj.pk)
@@ -197,8 +203,20 @@ def staff_family_income(request, user_id: int):
             )
             return redirect("staff_family_income", user_id=user_obj.pk)
 
+        approved_at = timezone.now()
+        previous_status = case.status
         case.status = FamilyIncomeCase.Status.APPROVED
-        case.save(update_fields=("status", "updated_at"))
+        case.approved_at = approved_at
+        case.save(update_fields=("status", "approved_at", "updated_at"))
+        FamilyIncomeAuditEvent.objects.create(
+            case=case,
+            actor=request.user,
+            action="approve_case",
+            target_model="FamilyIncomeCase",
+            target_id=case.pk,
+            before={"status": previous_status, "approved_at": None},
+            after={"status": case.status, "approved_at": approved_at.isoformat()},
+        )
         create_family_income_notification(
             recipients=[user_obj],
             sender=request.user,

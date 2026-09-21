@@ -35,6 +35,8 @@ class FamilyIncomeCase(models.Model):
     family_members_description = models.TextField("Состав семьи и занятия")
     family_characteristics = models.TextField("Характеристика семьи", blank=True)
     low_income_recognized = models.BooleanField("Семья признана малоимущей", null=True, blank=True)
+    last_submitted_at = models.DateTimeField("Последняя отправка на проверку", null=True, blank=True, db_index=True)
+    approved_at = models.DateTimeField("Подтверждено", null=True, blank=True)
     created_at = models.DateTimeField("Создано", auto_now_add=True)
     updated_at = models.DateTimeField("Изменено", auto_now=True)
 

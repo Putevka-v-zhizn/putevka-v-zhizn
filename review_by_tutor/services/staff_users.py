@@ -4,12 +4,13 @@ from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
 from django.db.models import (
     Q, Count, OuterRef, Subquery, Exists,
-    Case, When, Value,
+    Case, F, When, Value,
     CharField, IntegerField,
 )
 from django.utils import timezone
 
 from core.models import MotivationLetter
+from family_income.models import FamilyIncomeCase, FamilyIncomeDocument
 from review_by_tutor.models import TestAssignment
 from scholar_form.models import ScholarVideo
 
@@ -27,6 +28,7 @@ def build_staff_users_queryset(request):
 
     form_status = (request.GET.get("form_status") or "").strip()
     participant_status = (request.GET.get("participant_status") or "").strip()
+    family_income_status = (request.GET.get("family_income_status") or "").strip()
 
     profiles_selected = [x.strip() for x in request.GET.getlist("profile") if x.strip()]
     grades_selected = [x.strip() for x in request.GET.getlist("grade_group") if x.strip()]
@@ -80,6 +82,30 @@ def build_staff_users_queryset(request):
         qs = qs.filter(
             user_info__isnull=False,
             user_info__status=participant_status,
+        )
+
+    if family_income_status == "not_submitted":
+        qs = qs.filter(user_info__status="FINAL STAGE").filter(
+            Q(user_info__family_income_case__isnull=True)
+            | Q(user_info__family_income_case__last_submitted_at__isnull=True)
+        )
+    elif family_income_status == FamilyIncomeCase.Status.REVISION:
+        qs = qs.filter(
+            user_info__status="FINAL STAGE",
+            user_info__family_income_case__status=FamilyIncomeCase.Status.REVISION,
+            user_info__family_income_case__last_submitted_at__isnull=False,
+        )
+    elif family_income_status in {
+        FamilyIncomeCase.Status.PENDING_REVIEW,
+        FamilyIncomeCase.Status.APPROVED,
+    }:
+        qs = qs.filter(
+            user_info__status="FINAL STAGE",
+            user_info__family_income_case__status=family_income_status,
+        )
+    elif family_income_status == "not_required":
+        qs = qs.filter(
+            Q(user_info__isnull=True) | ~Q(user_info__status="FINAL STAGE")
         )
 
     if q:
@@ -235,6 +261,54 @@ def build_staff_users_queryset(request):
         output_field=IntegerField(),
     )
 
+    family_income_status_order = Case(
+        When(
+            user_info__status="FINAL STAGE",
+            user_info__family_income_case__status=FamilyIncomeCase.Status.PENDING_REVIEW,
+            then=Value(1),
+        ),
+        When(
+            user_info__status="FINAL STAGE",
+            user_info__family_income_case__status=FamilyIncomeCase.Status.REVISION,
+            user_info__family_income_case__last_submitted_at__isnull=False,
+            then=Value(2),
+        ),
+        When(
+            user_info__status="FINAL STAGE",
+            user_info__family_income_case__last_submitted_at__isnull=True,
+            then=Value(3),
+        ),
+        When(
+            user_info__status="FINAL STAGE",
+            user_info__family_income_case__status=FamilyIncomeCase.Status.APPROVED,
+            then=Value(4),
+        ),
+        default=Value(5),
+        output_field=IntegerField(),
+    )
+
+    family_income_documents = FamilyIncomeDocument.objects.filter(
+        case_id=OuterRef("user_info__family_income_case__pk"),
+    )
+    family_income_unapproved_count = Subquery(
+        family_income_documents
+        .exclude(review_status=FamilyIncomeDocument.ReviewStatus.APPROVED)
+        .order_by()
+        .values("case_id")
+        .annotate(total=Count("pk"))
+        .values("total")[:1],
+        output_field=IntegerField(),
+    )
+    family_income_clarification_count = Subquery(
+        family_income_documents
+        .filter(review_status=FamilyIncomeDocument.ReviewStatus.CLARIFICATION)
+        .order_by()
+        .values("case_id")
+        .annotate(total=Count("pk"))
+        .values("total")[:1],
+        output_field=IntegerField(),
+    )
+
     qs = qs.annotate(
         docs_total=Count(
             "documents",
@@ -263,6 +337,12 @@ def build_staff_users_queryset(request):
         letter_status_order=letter_status_order,
         video_status_order=video_status_order,
         selection_step_order=selection_step_order,
+        family_income_case_status=F("user_info__family_income_case__status"),
+        family_income_last_submitted_at=F("user_info__family_income_case__last_submitted_at"),
+        family_income_approved_at=F("user_info__family_income_case__approved_at"),
+        family_income_unapproved_count=family_income_unapproved_count,
+        family_income_clarification_count=family_income_clarification_count,
+        family_income_status_order=family_income_status_order,
     )
 
     if test_deadline == "overdue":
@@ -299,6 +379,15 @@ def build_staff_users_queryset(request):
 
         "result": ["selection_step_order", "last_name", "first_name", "username"],
         "-result": ["-selection_step_order", "last_name", "first_name", "username"],
+
+        "family_income": [
+            "family_income_status_order", "-family_income_last_submitted_at",
+            "last_name", "first_name", "username",
+        ],
+        "-family_income": [
+            "-family_income_status_order", "family_income_last_submitted_at",
+            "last_name", "first_name", "username",
+        ],
     }
 
     order_by_fields = []
@@ -324,6 +413,7 @@ def get_staff_users_filters(request):
     course = (request.GET.get("course") or "").strip()
     form_status = (request.GET.get("form_status") or "").strip()
     participant_status = (request.GET.get("participant_status") or "").strip()
+    family_income_status = (request.GET.get("family_income_status") or "").strip()
     profiles_selected = [x.strip() for x in request.GET.getlist("profile") if x.strip()]
     grades_selected = [x.strip() for x in request.GET.getlist("grade_group") if x.strip()]
     curator_need = (request.GET.get("curator_need") or "").strip()
@@ -339,6 +429,7 @@ def get_staff_users_filters(request):
         "course": course,
         "form_status": form_status,
         "participant_status": participant_status,
+        "family_income_status": family_income_status,
         "profiles_selected": profiles_selected,
         "grades_selected": grades_selected,
         "curator_need": curator_need,

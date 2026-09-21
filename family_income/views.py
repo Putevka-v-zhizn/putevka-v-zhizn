@@ -21,7 +21,7 @@ from scholar_form.services.yandex_disk import (
 
 from .forms import FamilyIncomeCaseForm, document_form_for_category
 from .models import (
-    FamilyIncomeCase, FamilyIncomeDocument, FamilyIncomeInstruction,
+    FamilyIncomeAuditEvent, FamilyIncomeCase, FamilyIncomeDocument, FamilyIncomeInstruction,
     IncomeEvidence, SocialBenefitEvidence,
 )
 from .notifications import active_staff_users, create_family_income_notification
@@ -254,11 +254,27 @@ def submit_case(request):
     submission_word = "повторно отправил" if is_resubmission else "отправил"
 
     with transaction.atomic():
+        submitted_at = timezone.now()
+        previous_status = case.status
         case.family_income_documents.filter(
             review_status=FamilyIncomeDocument.ReviewStatus.CLARIFICATION,
-        ).update(review_status=FamilyIncomeDocument.ReviewStatus.PENDING, updated_at=timezone.now())
+        ).update(review_status=FamilyIncomeDocument.ReviewStatus.PENDING, updated_at=submitted_at)
         case.status = FamilyIncomeCase.Status.PENDING_REVIEW
-        case.save(update_fields=("status", "updated_at"))
+        case.last_submitted_at = submitted_at
+        case.approved_at = None
+        case.save(update_fields=("status", "last_submitted_at", "approved_at", "updated_at"))
+        FamilyIncomeAuditEvent.objects.create(
+            case=case,
+            actor=request.user,
+            action="resubmit_case" if is_resubmission else "submit_case",
+            target_model="FamilyIncomeCase",
+            target_id=case.pk,
+            before={"status": previous_status},
+            after={
+                "status": case.status,
+                "last_submitted_at": submitted_at.isoformat(),
+            },
+        )
         create_family_income_notification(
             recipients=active_staff_users(exclude_user_id=request.user.pk),
             sender=request.user,

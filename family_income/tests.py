@@ -250,6 +250,9 @@ class FamilyIncomeUserFlowTests(TestCase):
         self.assertRedirects(response, reverse("family_income:page"))
         case.refresh_from_db()
         self.assertEqual(case.status, FamilyIncomeCase.Status.PENDING_REVIEW)
+        self.assertIsNotNone(case.last_submitted_at)
+        self.assertIsNone(case.approved_at)
+        self.assertEqual(case.audit_events.get().action, "submit_case")
 
     def test_submission_notifies_active_staff(self):
         staff = User.objects.create_user(username="family-income-staff", password="password", is_staff=True)
@@ -542,6 +545,8 @@ class FamilyIncomeStaffViewTests(TestCase):
         self.assertRedirects(response, reverse("family_income:page"))
         self.case.refresh_from_db()
         self.assertEqual(self.case.status, FamilyIncomeCase.Status.PENDING_REVIEW)
+        self.assertIsNotNone(self.case.last_submitted_at)
+        self.assertEqual(self.case.audit_events.first().action, "resubmit_case")
         item.refresh_from_db()
         self.assertEqual(item.review_status, FamilyIncomeDocument.ReviewStatus.PENDING)
 
@@ -627,6 +632,8 @@ class FamilyIncomeStaffViewTests(TestCase):
         self.assertRedirects(response, reverse("staff_family_income", args=[self.candidate.pk]))
         self.case.refresh_from_db()
         self.assertEqual(self.case.status, FamilyIncomeCase.Status.APPROVED)
+        self.assertIsNotNone(self.case.approved_at)
+        self.assertEqual(self.case.audit_events.first().action, "approve_case")
         self.assertTrue(
             UserNotification.objects.filter(
                 recipient=self.candidate,

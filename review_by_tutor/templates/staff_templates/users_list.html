@@ -145,6 +145,18 @@
             </div>
 
             <div class="col-lg-2">
+                <label class="form-label">Семья и доход</label>
+                <select name="family_income_status" class="form-select">
+                    <option value="" {% if not family_income_status %}selected{% endif %}>Все</option>
+                    <option value="not_submitted" {% if family_income_status == "not_submitted" %}selected{% endif %}>Не отправлено</option>
+                    <option value="pending_review" {% if family_income_status == "pending_review" %}selected{% endif %}>На проверке</option>
+                    <option value="revision" {% if family_income_status == "revision" %}selected{% endif %}>На доработке</option>
+                    <option value="approved" {% if family_income_status == "approved" %}selected{% endif %}>Подтверждено</option>
+                    <option value="not_required" {% if family_income_status == "not_required" %}selected{% endif %}>Не требуется</option>
+                </select>
+            </div>
+
+            <div class="col-lg-2">
                 <label class="form-label">Анкета</label>
                 <select name="form_status" class="form-select">
                     <option value="" {% if not form_status %}selected{% endif %}>Все</option>
@@ -316,6 +328,12 @@
                                 </a>
                             </th>
 
+                            <th style="min-width:150px;">
+                                <a class="text-decoration-none text-dark d-block" href="{% sort_url 'family_income' %}">
+                                    Семья и доход {% sort_icon 'family_income' %}
+                                </a>
+                            </th>
+
                             <th>
                                 <a class="text-decoration-none text-dark d-block" href="{% sort_url 'form' %}">
                                     Анкета {% sort_icon 'form' %}
@@ -385,6 +403,8 @@
                                                 <span class="badge text-bg-info">Альтернативный</span>
                                             {% elif u.user_info.status == "SCHOLAR" %}
                                                 <span class="badge text-bg-success">Участник</span>
+                                            {% elif u.user_info.status == "FINAL STAGE" %}
+                                                <span class="badge text-bg-primary">Финалист</span>
                                             {% elif u.user_info.status == "ALUMNUS" %}
                                                 <span class="badge text-bg-secondary">Выпускник</span>
                                             {% else %}
@@ -399,6 +419,42 @@
                                                   title="Документы на проверке">docs: {{ u.docs_pending }}</span>
                                         {% endif %}
                                     </div>
+                                </td>
+
+                                <!-- Семья и доход -->
+                                <td>
+                                    {% if u.user_info.status != "FINAL STAGE" %}
+                                        <span class="badge text-bg-light text-dark">не требуется</span>
+                                    {% else %}
+                                        <a href="{% url 'staff_family_income' u.id %}" class="text-decoration-none">
+                                            {% if not u.family_income_last_submitted_at %}
+                                                <span class="badge text-bg-secondary">не отправлено</span>
+                                            {% elif u.family_income_case_status == "pending_review" %}
+                                                <span class="badge text-bg-primary">на проверке</span>
+                                            {% elif u.family_income_case_status == "revision" %}
+                                                <span class="badge text-bg-warning text-dark">на доработке</span>
+                                            {% elif u.family_income_case_status == "approved" %}
+                                                <span class="badge text-bg-success">подтверждено</span>
+                                            {% else %}
+                                                <span class="badge text-bg-secondary">не отправлено</span>
+                                            {% endif %}
+                                        </a>
+
+                                        {% if u.family_income_last_submitted_at %}
+                                            <div class="small text-muted mt-1">
+                                                Отправлено {{ u.family_income_last_submitted_at|date:"d.m.Y H:i" }}
+                                            </div>
+                                        {% endif %}
+                                        {% if u.family_income_case_status == "pending_review" and u.family_income_unapproved_count %}
+                                            <div class="small text-primary mt-1">
+                                                Проверить: {{ u.family_income_unapproved_count }}
+                                            </div>
+                                        {% elif u.family_income_case_status == "revision" and u.family_income_clarification_count %}
+                                            <div class="small text-warning-emphasis mt-1">
+                                                Уточнений: {{ u.family_income_clarification_count }}
+                                            </div>
+                                        {% endif %}
+                                    {% endif %}
                                 </td>
 
                                 <!-- Регистрация -->
@@ -564,7 +620,7 @@
                                 <div class="mb-3">
                                     <label for="messageText" class="form-label">Текст сообщения</label>
                                     <textarea id="messageText" name="message" class="form-control" rows="5"
-                                              placeholder="Сообщение для получателей…" required></textarea>
+                                              placeholder="Сообщение для получателей…" required>{% if participant_status == "FINAL STAGE" and family_income_status == "not_submitted" %}Пожалуйста, заполните раздел «Семья и доход» и отправьте сведения на проверку.{% endif %}</textarea>
                                     <div class="form-text">Сообщение увидят все отмеченные пользователи.</div>
                                 </div>
                             </div>
