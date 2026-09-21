@@ -26,6 +26,7 @@ def build_staff_users_queryset(request):
     course = (request.GET.get("course") or "").strip()
 
     form_status = (request.GET.get("form_status") or "").strip()
+    participant_status = (request.GET.get("participant_status") or "").strip()
 
     profiles_selected = [x.strip() for x in request.GET.getlist("profile") if x.strip()]
     grades_selected = [x.strip() for x in request.GET.getlist("grade_group") if x.strip()]
@@ -74,6 +75,12 @@ def build_staff_users_queryset(request):
                 user_info__isnull=False,
                 user_info__form_status=form_status
             )
+
+    if participant_status:
+        qs = qs.filter(
+            user_info__isnull=False,
+            user_info__status=participant_status,
+        )
 
     if q:
         qs = qs.filter(
@@ -316,6 +323,7 @@ def get_staff_users_filters(request):
     school = (request.GET.get("school") or "").strip()
     course = (request.GET.get("course") or "").strip()
     form_status = (request.GET.get("form_status") or "").strip()
+    participant_status = (request.GET.get("participant_status") or "").strip()
     profiles_selected = [x.strip() for x in request.GET.getlist("profile") if x.strip()]
     grades_selected = [x.strip() for x in request.GET.getlist("grade_group") if x.strip()]
     curator_need = (request.GET.get("curator_need") or "").strip()
@@ -330,6 +338,7 @@ def get_staff_users_filters(request):
         "school": school,
         "course": course,
         "form_status": form_status,
+        "participant_status": participant_status,
         "profiles_selected": profiles_selected,
         "grades_selected": grades_selected,
         "curator_need": curator_need,

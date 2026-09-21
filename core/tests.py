@@ -1111,6 +1111,7 @@ class StaffUsersServiceTests(IntegrationTestCase):
                 "letter_status": MotivationLetter.Status.SUBMITTED,
                 "favorite_letter": "1",
                 "test_deadline": "overdue",
+                "participant_status": "FINAL STAGE",
                 "sort": "tests,user",
             }
         )
@@ -1130,6 +1131,7 @@ class StaffUsersServiceTests(IntegrationTestCase):
                 "show_staff": "1",
                 "profile": ["it", ""],
                 "grade_group": ["other"],
+                "participant_status": "FINAL STAGE",
                 "sort": "user",
             }
         )
@@ -1139,7 +1141,20 @@ class StaffUsersServiceTests(IntegrationTestCase):
         self.assertEqual(filters["q"], "filter")
         self.assertEqual(filters["profiles_selected"], ["it"])
         self.assertEqual(filters["grades_selected"], ["other"])
+        self.assertEqual(filters["participant_status"], "FINAL STAGE")
         self.assertEqual(filters["show_staff"], "1")
+
+    def test_build_staff_users_queryset_filters_by_participant_status(self):
+        finalist = self.create_finished_candidate("finalist-filter@example.com")
+        self.candidate.user_info.status = "CANDIDATE"
+        self.candidate.user_info.save(update_fields=["status"])
+
+        finalists = list(build_staff_users_queryset(self.request({
+            "participant_status": "FINAL STAGE",
+            "sort": "user",
+        })))
+
+        self.assertEqual(finalists, [finalist])
 
     def test_build_staff_users_queryset_can_include_staff_when_requested(self):
         request = self.request({"show_staff": "1", "registration_confirmed": "0", "sort": "user"})

@@ -134,6 +134,17 @@
             </div>
 
             <div class="col-lg-2">
+                <label class="form-label">Статус участника</label>
+                <select name="participant_status" class="form-select">
+                    <option value="" {% if not participant_status %}selected{% endif %}>Все</option>
+                    {% for value, label in participant_statuses %}
+                        <option value="{{ value }}"
+                                {% if participant_status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-lg-2">
                 <label class="form-label">Анкета</label>
                 <select name="form_status" class="form-select">
                     <option value="" {% if not form_status %}selected{% endif %}>Все</option>

@@ -1059,6 +1059,7 @@ def staff_users_list(request):
     courses = courses_qs.order_by("title")
 
     profiles = list(UserInfo.InternalStudyProfile.choices or [])
+    participant_statuses = list(UserInfo.STATUSES)
     steps = getattr(UserInfo, "SELECTION_STEP_CHOICES", None) or UserInfo._meta.get_field("selection_step").choices
 
     context = {
@@ -1066,6 +1067,7 @@ def staff_users_list(request):
         "schools": schools,
         "courses": courses,
         "profiles": profiles,
+        "participant_statuses": participant_statuses,
         "steps": steps,
         **filters_data,
     }
