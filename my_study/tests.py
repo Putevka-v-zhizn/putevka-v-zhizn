@@ -127,6 +127,29 @@ class CourseTrackAccessTests(TestCase):
             CourseSelection.objects.filter(user=user, course=self.main_only_course).exists()
         )
 
+    def test_school_filter_only_contains_schools_with_available_courses(self):
+        empty_school = School.objects.create(name="Empty school")
+        alternative_hidden_school = School.objects.create(name="Main track school")
+        Course.objects.create(
+            school=alternative_hidden_school,
+            subject=self.subject,
+            title="Another main-only course",
+        )
+
+        scholar = self.make_user("school-filter-scholar", "SCHOLAR")
+        self.client.force_login(scholar)
+        response = self.client.get(reverse("study:schools"))
+        self.assertQuerySetEqual(
+            response.context["schools"],
+            [alternative_hidden_school, self.school],
+        )
+        self.assertNotIn(empty_school, response.context["schools"])
+
+        alternative = self.make_user("school-filter-alternative", "ALTERNATIVE")
+        self.client.force_login(alternative)
+        response = self.client.get(reverse("study:schools"))
+        self.assertQuerySetEqual(response.context["schools"], [self.school])
+
     def test_alternative_only_sees_and_selects_allowed_courses(self):
         user = self.make_user("alternative", "ALTERNATIVE")
         self.client.force_login(user)
