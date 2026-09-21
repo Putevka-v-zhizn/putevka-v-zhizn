@@ -110,6 +110,23 @@ class CourseTrackAccessTests(TestCase):
             CourseSelection.objects.filter(user=user, course=self.main_only_course).exists()
         )
 
+    def test_finalist_can_see_and_select_every_course(self):
+        user = self.make_user("finalist", "FINAL STAGE")
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("study:schools"))
+        self.assertContains(response, "Main only")
+        self.assertContains(response, "Shared")
+
+        response = self.client.post(
+            reverse("study:select_course", args=[self.main_only_course.pk]),
+            {"motivation": "Useful"},
+        )
+        self.assertRedirects(response, reverse("study:schools"))
+        self.assertTrue(
+            CourseSelection.objects.filter(user=user, course=self.main_only_course).exists()
+        )
+
     def test_alternative_only_sees_and_selects_allowed_courses(self):
         user = self.make_user("alternative", "ALTERNATIVE")
         self.client.force_login(user)
@@ -163,7 +180,7 @@ class CourseTrackAccessTests(TestCase):
             reverse("study:delete_university_priority", args=[999]),
             reverse("study:assessments"),
         ]
-        for status in ("CANDIDATE", "FINAL STAGE", "ALUMNUS", None):
+        for status in ("CANDIDATE", "ALUMNUS", None):
             with self.subTest(status=status):
                 user = self.make_user(f"blocked-{status}", status)
                 self.client.force_login(user)
@@ -175,8 +192,8 @@ class CourseTrackAccessTests(TestCase):
         for status, visible in (
             ("SCHOLAR", True),
             ("ALTERNATIVE", True),
+            ("FINAL STAGE", True),
             ("CANDIDATE", False),
-            ("FINAL STAGE", False),
             ("ALUMNUS", False),
         ):
             with self.subTest(status=status):

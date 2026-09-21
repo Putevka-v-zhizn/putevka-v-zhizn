@@ -55,7 +55,7 @@
         </a>
     {% endif %}
 
-    {% if user.user_info.status == "SCHOLAR" or user.user_info.status == "ALTERNATIVE" %}
+    {% if user.user_info.status == "SCHOLAR" or user.user_info.status == "ALTERNATIVE" or user.user_info.status == "FINAL STAGE" %}
         <a class="list-group-item list-group-item-action d-flex align-items-center {% if active == 'study' %} active{% endif %}"
            href="{% url 'study:schools' %}">
             Моя учёба
@@ -135,7 +135,7 @@
             </a>
         {% endif %}
 
-        {% if user.user_info.status == "SCHOLAR" or user.user_info.status == "ALTERNATIVE" %}
+        {% if user.user_info.status == "SCHOLAR" or user.user_info.status == "ALTERNATIVE" or user.user_info.status == "FINAL STAGE" %}
             <a href="{% url 'study:schools' %}"
                class="text-center {% if active == 'study' %}text-primary{% else %}text-secondary{% endif %}">
                 <div class="small">Учёба</div>
