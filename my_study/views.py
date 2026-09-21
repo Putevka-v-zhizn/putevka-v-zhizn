@@ -20,13 +20,13 @@ logger = logging.getLogger(__name__)
 @study_access_required
 def schools_and_courses(request):
     subjects = Subject.objects.all()
-    schools = School.objects.all()
-
-    form = CourseFilterForm(request.GET or None)
     qs = available_courses_for(
         request.user,
         Course.objects.select_related("school", "subject"),
     )
+    schools = School.objects.filter(courses__in=qs).distinct()
+
+    form = CourseFilterForm(request.GET or None)
 
     if form.is_valid():
         subject = form.cleaned_data.get("subject")

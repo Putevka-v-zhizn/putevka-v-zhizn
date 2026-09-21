@@ -34,6 +34,7 @@ from core.models import (
 from documents.ctx_builders import base_user_context, merge_context
 from documents.jinja_env import build_jinja_env, date_ru, money_text_ru
 from documents.models import DocTemplate, Document, DocumentType
+from family_income.models import FamilyIncomeCase
 from my_study.models import (
     AssessmentResult,
     Course,
@@ -1111,6 +1112,7 @@ class StaffUsersServiceTests(IntegrationTestCase):
                 "letter_status": MotivationLetter.Status.SUBMITTED,
                 "favorite_letter": "1",
                 "test_deadline": "overdue",
+                "participant_status": "FINAL STAGE",
                 "sort": "tests,user",
             }
         )
@@ -1130,6 +1132,8 @@ class StaffUsersServiceTests(IntegrationTestCase):
                 "show_staff": "1",
                 "profile": ["it", ""],
                 "grade_group": ["other"],
+                "participant_status": "FINAL STAGE",
+                "family_income_status": "not_submitted",
                 "sort": "user",
             }
         )
@@ -1139,7 +1143,71 @@ class StaffUsersServiceTests(IntegrationTestCase):
         self.assertEqual(filters["q"], "filter")
         self.assertEqual(filters["profiles_selected"], ["it"])
         self.assertEqual(filters["grades_selected"], ["other"])
+        self.assertEqual(filters["participant_status"], "FINAL STAGE")
+        self.assertEqual(filters["family_income_status"], "not_submitted")
         self.assertEqual(filters["show_staff"], "1")
+
+    def test_build_staff_users_queryset_filters_by_participant_status(self):
+        finalist = self.create_finished_candidate("finalist-filter@example.com")
+        self.candidate.user_info.status = "CANDIDATE"
+        self.candidate.user_info.save(update_fields=["status"])
+
+        finalists = list(build_staff_users_queryset(self.request({
+            "participant_status": "FINAL STAGE",
+            "sort": "user",
+        })))
+
+        self.assertEqual(finalists, [finalist])
+
+    def test_family_income_filter_distinguishes_workflow_states_and_scope(self):
+        not_submitted = self.candidate
+        FamilyIncomeCase.objects.create(
+            user_info=not_submitted.user_info,
+            family_members_count=1,
+            family_members_description="",
+            status=FamilyIncomeCase.Status.REVISION,
+        )
+
+        pending = self.create_finished_candidate("family-pending@example.com")
+        FamilyIncomeCase.objects.create(
+            user_info=pending.user_info,
+            family_members_count=2,
+            family_members_description="Family",
+            status=FamilyIncomeCase.Status.PENDING_REVIEW,
+            last_submitted_at=timezone.now(),
+        )
+
+        approved = self.create_finished_candidate("family-approved@example.com")
+        FamilyIncomeCase.objects.create(
+            user_info=approved.user_info,
+            family_members_count=2,
+            family_members_description="Family",
+            status=FamilyIncomeCase.Status.APPROVED,
+            last_submitted_at=timezone.now(),
+            approved_at=timezone.now(),
+        )
+
+        not_required = self.create_finished_candidate("family-candidate@example.com")
+        not_required.user_info.status = "CANDIDATE"
+        not_required.user_info.save(update_fields=["status"])
+
+        def users_for(status):
+            return list(build_staff_users_queryset(self.request({
+                "family_income_status": status,
+                "sort": "user",
+            })))
+
+        self.assertEqual(users_for("not_submitted"), [not_submitted])
+        self.assertEqual(users_for(FamilyIncomeCase.Status.PENDING_REVIEW), [pending])
+        self.assertEqual(users_for(FamilyIncomeCase.Status.APPROVED), [approved])
+        self.assertEqual(users_for("not_required"), [not_required])
+
+        pending_row = users_for(FamilyIncomeCase.Status.PENDING_REVIEW)[0]
+        self.assertEqual(
+            pending_row.family_income_case_status,
+            FamilyIncomeCase.Status.PENDING_REVIEW,
+        )
+        self.assertIsNotNone(pending_row.family_income_last_submitted_at)
 
     def test_build_staff_users_queryset_can_include_staff_when_requested(self):
         request = self.request({"show_staff": "1", "registration_confirmed": "0", "sort": "user"})

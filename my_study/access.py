@@ -3,7 +3,7 @@ from functools import wraps
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 
 
-ALLOWED_STUDY_STATUSES = {"SCHOLAR", "ALTERNATIVE"}
+ALLOWED_STUDY_STATUSES = {"SCHOLAR", "ALTERNATIVE", "FINAL STAGE"}
 
 
 def get_study_status(user):
