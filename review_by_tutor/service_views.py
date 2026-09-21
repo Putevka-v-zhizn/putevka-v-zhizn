@@ -13,6 +13,7 @@ from openpyxl.utils import get_column_letter
 from family_income.models import (
     FamilyIncomeCase, FamilyIncomeDecision, FamilyIncomeDocument,
 )
+from my_study.models import Course, CourseSelection, School
 from review_by_tutor.services.staff_users import build_staff_users_queryset
 from review_by_tutor.views import _staff_check
 
@@ -109,7 +110,7 @@ def _append_family_income_sheet(workbook, users):
                 years_with_automatic_amount.add(year)
 
         decisions_by_year = {
-            decision.year.year: decision
+            decision.year.year if decision.year else None: decision
             for decision in case.decisions_for_export
         }
         years.update(decisions_by_year)
@@ -161,6 +162,145 @@ def _append_family_income_sheet(workbook, users):
     }
     for column, width in widths.items():
         ws.column_dimensions[column].width = width
+
+
+def _format_export_sheet(ws, widths):
+    """Применяет единое оформление к служебным листам выгрузки."""
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(vertical="top", wrap_text=True)
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = ws.dimensions
+    for row in ws.iter_rows(min_row=2):
+        for cell in row:
+            cell.alignment = Alignment(vertical="top", wrap_text=True)
+    for column, width in widths.items():
+        ws.column_dimensions[column].width = width
+
+
+def _append_study_sheets(workbook, users):
+    """Добавляет справочники онлайн-школ и курсов и выбор курсов детьми."""
+    user_ids = [user.pk for user in users]
+    selected_count_by_course = defaultdict(int)
+
+    selections = list(
+        CourseSelection.objects
+        .filter(user_id__in=user_ids)
+        .select_related("user__user_info", "course__school", "course__subject")
+        .order_by(
+            "user__user_info__last_name",
+            "user__user_info__first_name",
+            "user__email",
+            "course__school__name",
+            "course__title",
+        )
+    )
+    selections_by_user_id = defaultdict(list)
+    for selection in selections:
+        selections_by_user_id[selection.user_id].append(selection)
+        selected_count_by_course[selection.course_id] += 1
+
+    schools_ws = workbook.create_sheet("Онлайн-школы")
+    schools_ws.append((
+        "ID школы", "Онлайн-школа", "Описание", "Сайт", "Количество курсов",
+    ))
+    schools = School.objects.prefetch_related("courses").order_by("name")
+    for school in schools:
+        schools_ws.append([
+            school.pk,
+            school.name,
+            school.description,
+            school.website,
+            len(school.courses.all()),
+        ])
+    _format_export_sheet(
+        schools_ws,
+        {"A": 12, "B": 32, "C": 56, "D": 40, "E": 20},
+    )
+
+    courses_ws = workbook.create_sheet("Курсы")
+    courses_ws.append((
+        "ID курса",
+        "ID школы",
+        "Онлайн-школа",
+        "Курс",
+        "Предмет",
+        "Описание",
+        "Ссылка",
+        "Доступен альтернативному треку",
+        "Выбрали детей в выгрузке",
+    ))
+    courses = Course.objects.select_related("school", "subject").order_by("school__name", "title")
+    for course in courses:
+        courses_ws.append([
+            course.pk,
+            course.school_id,
+            course.school.name,
+            course.title,
+            course.subject.name,
+            course.description,
+            course.link,
+            _bool(course.available_to_alternative),
+            selected_count_by_course[course.pk],
+        ])
+    _format_export_sheet(
+        courses_ws,
+        {
+            "A": 12, "B": 12, "C": 30, "D": 34, "E": 24,
+            "F": 56, "G": 40, "H": 28, "I": 24,
+        },
+    )
+
+    children_ws = workbook.create_sheet("Дети и курсы")
+    children_ws.append((
+        "ID пользователя",
+        "Email",
+        "Фамилия",
+        "Имя",
+        "Отчество",
+        "Регион",
+        "Город",
+        "Класс в следующем году",
+        "ID школы",
+        "Онлайн-школа",
+        "ID курса",
+        "Курс",
+        "Предмет",
+        "Мотивация",
+        "Нужен куратор",
+        "Дата выбора",
+    ))
+    for user in users:
+        ui = getattr(user, "user_info", None)
+        user_selections = selections_by_user_id.get(user.pk) or [None]
+        for selection in user_selections:
+            course = selection.course if selection else None
+            children_ws.append([
+                user.pk,
+                user.email,
+                ui.last_name if ui else user.last_name,
+                ui.first_name if ui else user.first_name,
+                ui.middle_name if ui else "",
+                ui.region if ui else "",
+                ui.city if ui else "",
+                ui.next_year_class_digit if ui else "",
+                course.school_id if course else "",
+                course.school.name if course else "",
+                course.pk if course else "",
+                course.title if course else "",
+                course.subject.name if course else "",
+                selection.motivation if selection else "",
+                _bool(selection.need_tutor) if selection else "",
+                _dt(selection.created_at) if selection else "",
+            ])
+    _format_export_sheet(
+        children_ws,
+        {
+            "A": 16, "B": 30, "C": 20, "D": 18, "E": 20,
+            "F": 22, "G": 22, "H": 24, "I": 12, "J": 30,
+            "K": 12, "L": 34, "M": 24, "N": 56, "O": 18, "P": 20,
+        },
+    )
 
 
 @login_required
@@ -455,6 +595,7 @@ def export_users_xlsx(request):
         ws.append(row)
 
     _append_family_income_sheet(wb, users)
+    _append_study_sheets(wb, users)
 
     # Немного приводим лист в порядок
     ws.freeze_panes = "A2"
