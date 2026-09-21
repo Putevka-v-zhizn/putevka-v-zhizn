@@ -119,6 +119,107 @@ class StaffUsersExportTests(TestCase):
         self.assertEqual(workbook["Пользователи"].max_row, 1)
         self.assertEqual(workbook["Семья и доход"].max_row, 1)
 
+    def test_export_handles_legacy_family_income_decision_without_year(self):
+        staff = get_user_model().objects.create_user(
+            username="legacy-income-export-staff", password="password", is_staff=True,
+        )
+        candidate = get_user_model().objects.create_user(
+            username="legacy-income-export", email="legacy-income@example.test", password="password",
+        )
+        user_info = UserInfo.objects.create(user=candidate, status="FINAL STAGE")
+        case = FamilyIncomeCase.objects.create(user_info=user_info, family_members_count=3)
+        FamilyIncomeDecision.objects.create(
+            case=case,
+            year=None,
+            amount_per_member=Decimal("15000.00"),
+            comment="Решение из старых данных",
+        )
+        self.client.force_login(staff)
+
+        response = self.client.get(
+            reverse("staff_users_export_xlsx"),
+            {"registration_confirmed": "0"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        workbook = load_workbook(BytesIO(response.content), data_only=True)
+        rows = list(workbook["Семья и доход"].iter_rows(min_row=2, values_only=True))
+        row = next(values for values in rows if values[0] == candidate.pk)
+        self.assertIsNone(row[3])
+        self.assertEqual(row[8], 15000)
+        self.assertEqual(row[9], "Решение из старых данных")
+
+    def test_export_includes_online_schools_courses_and_children(self):
+        staff = get_user_model().objects.create_user(
+            username="study-export-staff", password="password", is_staff=True,
+        )
+        selected_child = get_user_model().objects.create_user(
+            username="selected-child", email="selected@example.test", password="password",
+        )
+        UserInfo.objects.create(
+            user=selected_child,
+            first_name="Анна",
+            last_name="Иванова",
+            region="Томская область",
+            city="Томск",
+            next_year_class_digit=10,
+        )
+        child_without_course = get_user_model().objects.create_user(
+            username="child-without-course", email="empty@example.test", password="password",
+        )
+        UserInfo.objects.create(user=child_without_course, first_name="Пётр", last_name="Смирнов")
+        subject = Subject.objects.create(name="Математика", slug="math-export")
+        school = School.objects.create(
+            name="Онлайн-школа",
+            description="Подготовка к экзаменам",
+            website="https://school.example.test",
+        )
+        course = Course.objects.create(
+            school=school,
+            subject=subject,
+            title="Профильная математика",
+            description="Годовой курс",
+            link="https://school.example.test/math",
+            available_to_alternative=True,
+        )
+        CourseSelection.objects.create(
+            user=selected_child,
+            course=course,
+            motivation="Хочу подготовиться к ЕГЭ",
+            need_tutor=True,
+        )
+        self.client.force_login(staff)
+
+        response = self.client.get(
+            reverse("staff_users_export_xlsx"),
+            {"registration_confirmed": "0"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        workbook = load_workbook(BytesIO(response.content), data_only=True)
+        self.assertIn("Онлайн-школы", workbook.sheetnames)
+        self.assertIn("Курсы", workbook.sheetnames)
+        self.assertIn("Дети и курсы", workbook.sheetnames)
+
+        school_headers = [cell.value for cell in workbook["Онлайн-школы"][1]]
+        school_row = list(workbook["Онлайн-школы"].iter_rows(min_row=2, values_only=True))[0]
+        self.assertEqual(school_row[school_headers.index("Онлайн-школа")], "Онлайн-школа")
+        self.assertEqual(school_row[school_headers.index("Количество курсов")], 1)
+
+        course_headers = [cell.value for cell in workbook["Курсы"][1]]
+        course_row = list(workbook["Курсы"].iter_rows(min_row=2, values_only=True))[0]
+        self.assertEqual(course_row[course_headers.index("Курс")], "Профильная математика")
+        self.assertEqual(course_row[course_headers.index("Выбрали детей в выгрузке")], 1)
+
+        child_headers = [cell.value for cell in workbook["Дети и курсы"][1]]
+        child_rows = list(workbook["Дети и курсы"].iter_rows(min_row=2, values_only=True))
+        selected_row = next(row for row in child_rows if row[1] == "selected@example.test")
+        empty_row = next(row for row in child_rows if row[1] == "empty@example.test")
+        self.assertEqual(selected_row[child_headers.index("Курс")], "Профильная математика")
+        self.assertEqual(selected_row[child_headers.index("Нужен куратор")], "Да")
+        self.assertEqual(selected_row[child_headers.index("Мотивация")], "Хочу подготовиться к ЕГЭ")
+        self.assertIsNone(empty_row[child_headers.index("Курс")])
+
 
 class LegacyFamilyStepRegressionTests(TestCase):
     def test_step_four_family_form_still_saves_legacy_questionnaire_fields(self):
