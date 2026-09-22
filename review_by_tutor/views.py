@@ -809,11 +809,17 @@ def staff_documents_detail(request, user_id: int):
 
     if request.method == "POST":
         form_type = request.POST.get("form_type")
-        if form_type == "update_personal_data":
+        if form_type in {"update_personal_data", "accept_personal_data"}:
             personal_data_form = UserPersonalDataStaffForm(request.POST, instance=personal_data)
             if personal_data_form.is_valid():
-                personal_data_form.save()
-                messages.success(request, "Персональные данные сохранены.")
+                personal_data = personal_data_form.save(commit=False)
+                if form_type == "accept_personal_data" and not personal_data.accepted_at:
+                    personal_data.accepted_at = timezone.now()
+                personal_data.save()
+                if form_type == "accept_personal_data":
+                    messages.success(request, "Персональные данные сохранены и приняты.")
+                else:
+                    messages.success(request, "Персональные данные сохранены.")
                 return redirect("staff_documents_detail", user_id=user_id)
             messages.error(request, "Исправьте ошибки в персональных данных.")
 
@@ -909,6 +915,7 @@ def staff_documents_detail(request, user_id: int):
         "other_rows": other_rows,
         "upload_form": upload_form,
         "personal_data_form": personal_data_form,
+        "personal_data_accepted": bool(personal_data.accepted_at),
         "active": "documents_dashboard",
         "send_notification_form": send_notification_form,
 
