@@ -36,7 +36,6 @@ urlpatterns = [
                   path('family-income/', include('family_income.urls')),
                   path("study/", include("my_study.urls")),
                   path('staff/', include('review_by_tutor.urls')),
-                  path("before/", include('subscriber.urls')),
                   path("internal/ai/", include("core.ai_urls")),
                   path("internal/telegram/", include("core.telegram_urls")),
 
