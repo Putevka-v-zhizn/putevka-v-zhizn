@@ -15,7 +15,7 @@ class PersonalInfoCompletionTests(TestCase):
         self.client.force_login(self.user)
         self.url = reverse("personal_info")
 
-    def test_user_form_is_hidden_after_first_successful_save(self):
+    def test_user_can_edit_personal_data_until_staff_accepts_it(self):
         response = self.client.get(self.url)
         self.assertContains(response, "Основные данные")
 
@@ -28,14 +28,26 @@ class PersonalInfoCompletionTests(TestCase):
         personal_data = UserPersonalData.objects.get(user=self.user)
         self.assertEqual(personal_data.first_name, "Иван")
         self.assertIsNotNone(personal_data.submitted_by_user_at)
-        self.assertNotContains(self.client.get(self.url), "Основные данные")
+        self.assertIsNone(personal_data.accepted_at)
+        self.assertContains(self.client.get(self.url), "Основные данные")
 
         self.client.post(
             self.url,
             {"form_type": "personal_data", "first_name": "Изменено"},
         )
         personal_data.refresh_from_db()
-        self.assertEqual(personal_data.first_name, "Иван")
+        self.assertEqual(personal_data.first_name, "Изменено")
+
+        personal_data.accepted_at = timezone.now()
+        personal_data.save(update_fields=["accepted_at"])
+        self.assertNotContains(self.client.get(self.url), "Основные данные")
+
+        self.client.post(
+            self.url,
+            {"form_type": "personal_data", "first_name": "Недоступное изменение"},
+        )
+        personal_data.refresh_from_db()
+        self.assertEqual(personal_data.first_name, "Изменено")
 
     def test_staff_form_can_edit_completed_personal_data(self):
         personal_data = UserPersonalData.objects.get(user=self.user)

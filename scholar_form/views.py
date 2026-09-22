@@ -445,7 +445,7 @@ def personal_info(request):
             if profile_form.is_valid():
                 profile_form.save()
             return redirect("personal_info")
-        elif personal_data.submitted_by_user_at:
+        elif personal_data.accepted_at:
             return redirect("personal_info")
         else:
             profile_form = UserProfileForm(request.POST, request.FILES, instance=profile)
@@ -472,7 +472,7 @@ def personal_info(request):
             "telegram_account": telegram_account,
             "telegram_bot_link": telegram_bot_link,
             "planned_exams_labels": planned_exams_labels,
-            "personal_data_completed": bool(personal_data.submitted_by_user_at),
+            "personal_data_accepted": bool(personal_data.accepted_at),
         },
     )
 

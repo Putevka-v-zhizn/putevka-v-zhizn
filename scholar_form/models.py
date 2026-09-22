@@ -598,6 +598,12 @@ class UserPersonalData(models.Model):
         null=True,
         editable=False,
     )
+    accepted_at = models.DateTimeField(
+        "Принято администратором",
+        blank=True,
+        null=True,
+        editable=False,
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

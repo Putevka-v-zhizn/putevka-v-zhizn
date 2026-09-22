@@ -1582,6 +1582,44 @@ class StaffPageSmokeTests(IntegrationTestCase):
         self.assertEqual(personal_data.passport_number, "567890")
         self.assertEqual(personal_data.snils, "123-456-789 00")
         self.assertEqual(personal_data.bank_bik, "044525225")
+        self.assertIsNone(personal_data.accepted_at)
+
+    def test_staff_can_save_and_accept_personal_data(self):
+        response = self.client.post(
+            reverse("staff_documents_detail", args=[self.candidate.id]),
+            {
+                "form_type": "accept_personal_data",
+                "first_name": "Анна",
+                "email": "anna@example.com",
+            },
+        )
+
+        self.assertRedirects(response, reverse("staff_documents_detail", args=[self.candidate.id]))
+        personal_data = self.candidate.personal_data
+        personal_data.refresh_from_db()
+        self.assertEqual(personal_data.first_name, "Анна")
+        self.assertIsNotNone(personal_data.accepted_at)
+
+        response = self.client.get(reverse("staff_documents_detail", args=[self.candidate.id]))
+        self.assertContains(response, "Приняты")
+        self.assertNotContains(response, "Сохранить и принять")
+
+    def test_staff_cannot_accept_invalid_personal_data(self):
+        response = self.client.post(
+            reverse("staff_documents_detail", args=[self.candidate.id]),
+            {
+                "form_type": "accept_personal_data",
+                "first_name": "Анна",
+                "email": "не email",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        personal_data = self.candidate.personal_data
+        personal_data.refresh_from_db()
+        self.assertIsNone(personal_data.accepted_at)
+        self.assertContains(response, "Исправьте ошибки в персональных данных")
+        self.assertContains(response, "Сохранить и принять")
 
     def test_staff_collection_and_json_pages_render(self):
         response = self.client.get(reverse("staff_users_list"), {"q": "pages-target"})
