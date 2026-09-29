@@ -11,21 +11,27 @@ def is_alternative_user(user):
 
 def available_document_types_for(user, queryset):
     if is_alternative_user(user):
-        return queryset.filter(available_to_alternative=True)
-    return queryset
+        return queryset.filter(audience__in=("alternative", "all"))
+    return queryset.filter(audience__in=("program", "all"))
 
 
 def available_documents_for(user, queryset):
     if is_alternative_user(user):
         return queryset.filter(
             Q(document_type__isnull=True)
-            | Q(document_type__available_to_alternative=True)
+            | Q(document_type__audience__in=("alternative", "all"))
         )
-    return queryset
+    return queryset.filter(
+        Q(document_type__isnull=True)
+        | Q(document_type__audience__in=("program", "all"))
+    )
 
 
 def ensure_document_type_available(user, document_type):
-    if is_alternative_user(user) and not document_type.available_to_alternative:
+    allowed_audiences = (
+        ("alternative", "all") if is_alternative_user(user) else ("program", "all")
+    )
+    if document_type.audience not in allowed_audiences:
         raise PermissionDenied
 
 

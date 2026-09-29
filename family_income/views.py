@@ -262,7 +262,8 @@ def submit_case(request):
         case.status = FamilyIncomeCase.Status.PENDING_REVIEW
         case.last_submitted_at = submitted_at
         case.approved_at = None
-        case.save(update_fields=("status", "last_submitted_at", "approved_at", "updated_at"))
+        case.revision_comment = ""
+        case.save(update_fields=("status", "last_submitted_at", "approved_at", "revision_comment", "updated_at"))
         FamilyIncomeAuditEvent.objects.create(
             case=case,
             actor=request.user,

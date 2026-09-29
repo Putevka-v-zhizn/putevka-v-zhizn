@@ -37,6 +37,8 @@ class FamilyIncomeCase(models.Model):
     low_income_recognized = models.BooleanField("Семья признана малоимущей", null=True, blank=True)
     last_submitted_at = models.DateTimeField("Последняя отправка на проверку", null=True, blank=True, db_index=True)
     approved_at = models.DateTimeField("Подтверждено", null=True, blank=True)
+    revision_comment = models.TextField("Комментарий к доработке", blank=True)
+    revision_requested_at = models.DateTimeField("Запрошена доработка", null=True, blank=True)
     created_at = models.DateTimeField("Создано", auto_now_add=True)
     updated_at = models.DateTimeField("Изменено", auto_now=True)
 

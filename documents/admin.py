@@ -20,9 +20,9 @@ class DocumentInstructionAdmin(admin.ModelAdmin):
 
 @admin.register(DocumentType)
 class DocumentTypeAdmin(admin.ModelAdmin):
-    list_display = ('name', 'sort_order', 'is_active', 'available_to_alternative', 'documents_count')
-    list_editable = ('sort_order', 'is_active', 'available_to_alternative')
-    list_filter = ('is_active', 'available_to_alternative')
+    list_display = ('name', 'audience', 'sort_order', 'is_active', 'documents_count')
+    list_editable = ('audience', 'sort_order', 'is_active')
+    list_filter = ('is_active', 'audience')
     search_fields = ('name', 'description')
     ordering = ('sort_order', 'name')
 

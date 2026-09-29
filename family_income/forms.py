@@ -40,6 +40,13 @@ class FamilyIncomeCaseStaffForm(FamilyIncomeCaseForm):
     """Служебная форма без полей пользовательского расчёта."""
 
 
+class FamilyIncomeCaseRevisionForm(forms.Form):
+    comment = forms.CharField(
+        label="Что нужно доработать",
+        widget=forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+    )
+
+
 class FamilyIncomeDocumentReviewForm(forms.ModelForm):
     class Meta:
         model = FamilyIncomeDocument

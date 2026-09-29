@@ -46,7 +46,11 @@ class DocumentTrackAccessTests(TestCase):
         cls.main_type = DocumentType.objects.create(name="Только основной трек")
         cls.shared_type = DocumentType.objects.create(
             name="Для обоих треков",
-            available_to_alternative=True,
+            audience=DocumentType.Audience.ALL,
+        )
+        cls.alternative_type = DocumentType.objects.create(
+            name="Только альтернативный трек",
+            audience=DocumentType.Audience.ALTERNATIVE,
         )
 
     def make_user(self, username, status):
@@ -62,6 +66,7 @@ class DocumentTrackAccessTests(TestCase):
 
         self.assertContains(response, "Только основной трек")
         self.assertContains(response, "Для обоих треков")
+        self.assertNotContains(response, "Только альтернативный трек")
 
     def test_alternative_only_sees_allowed_document_types(self):
         user = self.make_user("documents-alternative", "ALTERNATIVE")
@@ -71,6 +76,8 @@ class DocumentTrackAccessTests(TestCase):
 
         self.assertNotContains(response, "Только основной трек")
         self.assertContains(response, "Для обоих треков")
+        self.assertContains(response, "Только альтернативный трек")
+        self.assertContains(response, reverse("documents_dashboard"))
 
     def test_alternative_cannot_access_or_change_hidden_slot_document(self):
         user = self.make_user("documents-hidden", "ALTERNATIVE")
@@ -99,3 +106,21 @@ class DocumentTrackAccessTests(TestCase):
         )
         self.assertTrue(Document.objects.filter(pk=document.pk, is_deleted=False).exists())
         self.assertNotIn(document, AttachDocumentsForm(user=user).fields["documents_to_attach"].queryset)
+
+    def test_program_user_cannot_access_alternative_only_document(self):
+        user = self.make_user("documents-program-hidden", "SCHOLAR")
+        document = Document.objects.create(
+            user=user,
+            document_type=self.alternative_type,
+            caption=self.alternative_type.name,
+        )
+        self.client.force_login(user)
+
+        self.assertEqual(
+            self.client.get(reverse("serve_document", args=[document.pk])).status_code,
+            403,
+        )
+        self.assertEqual(
+            self.client.post(reverse("delete_document", args=[document.pk])).status_code,
+            403,
+        )

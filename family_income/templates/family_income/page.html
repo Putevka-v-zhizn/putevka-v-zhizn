@@ -57,6 +57,11 @@
 
   {% if not editable %}
     <div class="alert alert-info">Сведения доступны только для просмотра. Если потребуются уточнения, сотрудник вернёт карточку на доработку.</div>
+  {% elif case.revision_comment %}
+    <div class="alert alert-warning">
+      <div class="fw-semibold">Что нужно доработать</div>
+      <div>{{ case.revision_comment|linebreaksbr }}</div>
+    </div>
   {% elif completion.clarifications_count %}
     {% if completion.unresolved_clarifications_count %}
       <div class="alert alert-warning">Сотрудник запросил уточнения по документам: {{ completion.clarifications_count }}. Сохраните изменения по каждому отмеченному документу, затем отправьте карточку на проверку.</div>

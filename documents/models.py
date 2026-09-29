@@ -46,13 +46,20 @@ class DocumentInstruction(models.Model):
 
 
 class DocumentType(models.Model):
+    class Audience(models.TextChoices):
+        PROGRAM = "program", "Участники программы"
+        ALTERNATIVE = "alternative", "Альтернативный трек"
+        ALL = "all", "Обе группы"
+
     name = models.CharField("Название", max_length=100, unique=True)
     description = models.TextField("Пояснение для пользователя", blank=True)
     sort_order = models.PositiveIntegerField("Порядок отображения", default=0)
     is_active = models.BooleanField("Активен", default=True)
-    available_to_alternative = models.BooleanField(
-        "Доступен альтернативному треку",
-        default=False,
+    audience = models.CharField(
+        "Кому показывать",
+        max_length=16,
+        choices=Audience.choices,
+        default=Audience.PROGRAM,
     )
 
     class Meta:
