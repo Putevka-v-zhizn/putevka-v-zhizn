@@ -641,6 +641,69 @@ class FamilyIncomeStaffViewTests(TestCase):
             ).exists()
         )
 
+    def test_staff_can_return_case_without_documents_for_revision(self):
+        self.client.force_login(self.staff)
+        url = reverse("staff_family_income", args=[self.candidate.pk])
+
+        response = self.client.post(
+            url,
+            {
+                "form_type": "request_case_revision",
+                "case-revision-comment": "Добавьте справку о доходе.",
+            },
+        )
+
+        self.assertRedirects(response, url)
+        self.case.refresh_from_db()
+        self.assertEqual(self.case.status, FamilyIncomeCase.Status.REVISION)
+        self.assertEqual(self.case.revision_comment, "Добавьте справку о доходе.")
+        self.assertIsNotNone(self.case.revision_requested_at)
+        self.assertEqual(self.case.audit_events.first().action, "request_case_revision")
+        self.assertTrue(UserNotification.objects.filter(recipient=self.candidate).exists())
+
+        self.client.force_login(self.candidate)
+        response = self.client.get(reverse("family_income:page"))
+        self.assertTrue(response.context["editable"])
+        self.assertContains(response, "Добавьте справку о доходе.")
+        self.assertContains(response, "Добавить справку")
+
+        response = self.client.post(reverse("family_income:submit"))
+        self.assertRedirects(response, reverse("family_income:page"))
+        self.case.refresh_from_db()
+        self.assertEqual(self.case.status, FamilyIncomeCase.Status.PENDING_REVIEW)
+        self.assertEqual(self.case.revision_comment, "")
+
+    def test_case_revision_requires_comment(self):
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            reverse("staff_family_income", args=[self.candidate.pk]),
+            {"form_type": "request_case_revision", "case-revision-comment": ""},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.case.refresh_from_db()
+        self.assertEqual(self.case.status, FamilyIncomeCase.Status.PENDING_REVIEW)
+
+    def test_staff_can_return_whole_case_with_unreviewed_document(self):
+        self._document(FamilyIncomeDocument.Category.OTHER)
+        self.client.force_login(self.staff)
+        url = reverse("staff_family_income", args=[self.candidate.pk])
+
+        response = self.client.get(url)
+        self.assertContains(response, "Вернуть на доработку")
+        self.assertNotContains(response, "Подтвердить карточку")
+
+        response = self.client.post(
+            url,
+            {
+                "form_type": "request_case_revision",
+                "case-revision-comment": "Добавьте ещё один документ.",
+            },
+        )
+        self.assertRedirects(response, url)
+        self.case.refresh_from_db()
+        self.assertEqual(self.case.status, FamilyIncomeCase.Status.REVISION)
+
     def test_staff_cannot_approve_case_with_unreviewed_documents(self):
         self._document(FamilyIncomeDocument.Category.OTHER)
         self.client.force_login(self.staff)

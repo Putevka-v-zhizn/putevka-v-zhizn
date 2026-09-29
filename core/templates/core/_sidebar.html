@@ -48,7 +48,7 @@
         </a>
     {% endif %}
 
-    {% if user.user_info.status == "FINAL STAGE" %}
+    {% if user.user_info.status == "FINAL STAGE" or user.user_info.status == "ALTERNATIVE" %}
         <a class="list-group-item list-group-item-action d-flex align-items-center {% if active == 'documents_dashboard' %} active{% endif %}"
            href="{% url 'documents_dashboard' %}">
             Документы
@@ -128,7 +128,7 @@
             </a>
         {% endif %}
 
-        {% if user.user_info.status == "FINAL STAGE" %}
+        {% if user.user_info.status == "FINAL STAGE" or user.user_info.status == "ALTERNATIVE" %}
             <a href="{% url 'documents_dashboard' %}"
                class="text-center {% if active == 'documents_dashboard' %}text-primary{% else %}text-secondary{% endif %}">
                 <div class="small">Документы</div>

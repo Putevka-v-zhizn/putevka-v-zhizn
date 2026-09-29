@@ -69,14 +69,31 @@
             <input type="hidden" name="form_type" value="reopen_case">
             <button class="btn btn-outline-primary">Вернуть на проверку</button>
           </form>
-        {% elif case.status == 'pending_review' and not unapproved_documents_count %}
-          <form method="post">
-            {% csrf_token %}
-            <input type="hidden" name="form_type" value="approve_case">
-            <button class="btn btn-success">Подтвердить карточку</button>
-          </form>
+        {% elif case.status == 'pending_review' %}
+          <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-outline-warning" type="button" data-bs-toggle="collapse" data-bs-target="#case-revision-form">Вернуть на доработку</button>
+            {% if not unapproved_documents_count %}
+              <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="form_type" value="approve_case">
+                <button class="btn btn-success">Подтвердить карточку</button>
+              </form>
+            {% endif %}
+          </div>
         {% endif %}
       </div>
+      {% if case.status == 'pending_review' %}
+        <div class="collapse {% if revision_form.errors %}show{% endif %} mt-3" id="case-revision-form">
+          <form method="post" class="border-top pt-3">
+            {% csrf_token %}
+            <input type="hidden" name="form_type" value="request_case_revision">
+            <label class="form-label" for="{{ revision_form.comment.id_for_label }}">{{ revision_form.comment.label }}</label>
+            {{ revision_form.comment }}
+            {% for error in revision_form.comment.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            <button class="btn btn-warning mt-3">Отправить на доработку</button>
+          </form>
+        </div>
+      {% endif %}
     </section>
 
     {% for section in sections %}

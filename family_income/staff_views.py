@@ -10,6 +10,7 @@ from scholar_form.models import UserInfo
 
 from .forms import (
     FamilyIncomeCaseStaffForm,
+    FamilyIncomeCaseRevisionForm,
     FamilyIncomeDocumentReviewForm,
     IncomeEvidenceStaffForm,
     FamilyIncomeDecisionForm,
@@ -85,6 +86,7 @@ def _render_page(
     review_form_with_error=None,
     income_form_with_error=None,
     decision_form=None,
+    revision_form=None,
     status=200,
 ):
     return render(
@@ -103,6 +105,7 @@ def _render_page(
             "decision_form": decision_form if decision_form is not None else FamilyIncomeDecisionForm(
                 case=case, initial=case.decisions.filter(year__isnull=True).values("amount_per_member", "comment").first(),
             ),
+            "revision_form": revision_form or FamilyIncomeCaseRevisionForm(prefix="case-revision"),
             "unapproved_documents_count": case.family_income_documents.exclude(
                 review_status=FamilyIncomeDocument.ReviewStatus.APPROVED,
             ).count(),
@@ -226,6 +229,48 @@ def staff_family_income(request, user_id: int):
             ),
         )
         messages.success(request, "Карточка подтверждена. Соискателю отправлено уведомление.")
+        return redirect("staff_family_income", user_id=user_obj.pk)
+
+    if form_type == "request_case_revision":
+        form = FamilyIncomeCaseRevisionForm(request.POST, prefix="case-revision")
+        if case.status != FamilyIncomeCase.Status.PENDING_REVIEW:
+            messages.error(request, "Вернуть на доработку можно только карточку, которая находится на проверке.")
+            return redirect("staff_family_income", user_id=user_obj.pk)
+        if not form.is_valid():
+            messages.error(request, "Напишите, что именно нужно доработать.")
+            return _render_page(
+                request, user_obj=user_obj, case=case,
+                revision_form=form, status=400,
+            )
+        requested_at = timezone.now()
+        previous_status = case.status
+        case.status = FamilyIncomeCase.Status.REVISION
+        case.revision_comment = form.cleaned_data["comment"]
+        case.revision_requested_at = requested_at
+        case.approved_at = None
+        case.save(update_fields=(
+            "status", "revision_comment", "revision_requested_at",
+            "approved_at", "updated_at",
+        ))
+        FamilyIncomeAuditEvent.objects.create(
+            case=case, actor=request.user, action="request_case_revision",
+            target_model="FamilyIncomeCase", target_id=case.pk,
+            before={"status": previous_status},
+            after={
+                "status": case.status,
+                "revision_comment": case.revision_comment,
+                "revision_requested_at": requested_at.isoformat(),
+            },
+            reason=case.revision_comment,
+        )
+        create_family_income_notification(
+            recipients=[user_obj], sender=request.user,
+            message=(
+                "Карточка «Семья и доход» вернута на доработку. "
+                f"Комментарий: {case.revision_comment}"
+            ),
+        )
+        messages.success(request, "Карточка вернута соискателю на доработку, уведомление отправлено.")
         return redirect("staff_family_income", user_id=user_obj.pk)
 
     document_id = request.POST.get("document_id")
