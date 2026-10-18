@@ -10,13 +10,14 @@ from django.urls import reverse
 from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 
-from core.models import RegistrationPersonalData, UserNotification
+from core.models import RegistrationPersonalData, UserNotification, UserProgramPreferences
 from scholar_form.models import UserInfo
 from .models import (
     NtoApplication, NtoApplicationEvent, NtoApplicationProfile,
     NtoCampaign, NtoConsentRevision, NtoProfile, NtoProfileImport,
 )
 from .forms import FinanceForm, MotivationForm
+from core.services.programs import select_program
 from .services import (
     apply_profile_import, create_application, parse_profile_workbook,
     review_application, submit_application, validate_submission,
@@ -174,6 +175,7 @@ class NtoTravelTests(TestCase):
         self.assertEqual(load_workbook(BytesIO(filtered.content)).active.max_row, 1)
 
     def test_incomplete_draft_and_conditional_form_cleanup(self):
+        select_program(self.user, 'nto')
         self.client.force_login(self.user)
         url = reverse("nto_travel:apply_step", args=[self.campaign.slug, "personal"])
         response = self.client.post(url, {
@@ -201,6 +203,7 @@ class NtoTravelTests(TestCase):
 
     def test_other_user_cannot_read_application(self):
         self.filled_application()
+        select_program(self.other, 'nto')
         self.client.force_login(self.other)
         response = self.client.get(reverse("nto_travel:application", args=[self.campaign.slug]))
         self.assertEqual(response.status_code, 404)
@@ -216,6 +219,10 @@ class NtoTravelTests(TestCase):
             user=self.user, email=self.user.email, password=self.user.password,
             current_step="finish", nto_campaign_slug=self.campaign.slug,
         )
+        # The return-to-season hint no longer determines program membership.
+        response = self.client.get(reverse("index"))
+        self.assertNotContains(response, 'href="' + reverse("nto_travel:landing") + '"')
+        UserProgramPreferences.objects.create(user=self.user, nto_enabled=True, active_program='nto')
         response = self.client.get(reverse("index"))
         self.assertContains(response, 'href="' + reverse("nto_travel:landing") + '"')
         for main_url in ("apply", "candidate_testing_list", "motivation_letter", "my_video_page", "preparation"):
@@ -270,4 +277,7 @@ class NtoTravelTests(TestCase):
         user.registrationpersonaldata.current_step = "finish"
         user.registrationpersonaldata.save(update_fields=["current_step"])
         response = self.client.get(reverse("finish_registration"))
-        self.assertContains(response, reverse("nto_travel:apply_step", args=[self.campaign.slug, "personal"]))
+        self.assertRedirects(response, reverse('programs'))
+        self.assertEqual(user.program_preferences.active_program, '')
+        response = self.client.post(reverse('program_select'), {'program': 'nto'})
+        self.assertRedirects(response, reverse("nto_travel:apply_step", args=[self.campaign.slug, "personal"]))

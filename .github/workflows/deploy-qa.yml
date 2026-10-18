@@ -162,9 +162,18 @@ jobs:
           cd '$DEPLOY_PATH'
           echo "Deploying QA branch: $DEPLOY_BRANCH"
           docker compose --env-file .env -f docker-compose.qa.yml pull
+          docker compose --env-file .env -f docker-compose.qa.yml run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
           docker compose --env-file .env -f docker-compose.qa.yml up -d --remove-orphans
+          # A bind-mounted Caddyfile can change without recreating the container.
+          docker compose --env-file .env -f docker-compose.qa.yml restart caddy
           docker compose --env-file .env -f docker-compose.qa.yml ps
           EOF
+
+      - name: Check QA admin and static files over HTTPS
+        timeout-minutes: 6
+        env:
+          QA_DOMAIN: ${{ secrets.QA_DOMAIN }}
+        run: python deploy/qa/check_http.py "https://$QA_DOMAIN"
 
   stop:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'stop'

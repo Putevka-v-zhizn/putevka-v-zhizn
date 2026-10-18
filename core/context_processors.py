@@ -1,6 +1,5 @@
-from django.core.exceptions import ObjectDoesNotExist
-
 from .models import UserNotification
+from .services.programs import get_program_preferences, request_program
 
 def unread_notifications(request):
     unread_count = 0
@@ -10,12 +9,14 @@ def unread_notifications(request):
 
 
 def nto_navigation(request):
-    if not request.user.is_authenticated:
-        return {'nto_entry_only': False}
-    try:
-        attempt = request.user.registrationpersonaldata
-    except (AttributeError, ObjectDoesNotExist):
-        return {'nto_entry_only': False}
+    if not request.user.is_authenticated or request.user.is_staff or request.user.is_superuser:
+        return {'nto_entry_only': False, 'show_program_navigation': False}
+    preferences = get_program_preferences(request.user)
+    current = request_program(request, preferences)
     return {
-        'nto_entry_only': bool(attempt.nto_campaign_slug),
+        'nto_entry_only': current == 'nto',
+        'show_program_navigation': bool(current),
+        'current_program': current,
+        'both_programs': preferences.main_enabled and preferences.nto_enabled,
+        'program_preferences': preferences,
     }

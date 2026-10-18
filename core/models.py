@@ -101,6 +101,23 @@ class TelegramAccount(models.Model):
         return f"{self.user.username}'s Telegram Account ({self.telegram_id if self.telegram_id else 'Не привязан'})"
 
 
+class UserProgramPreferences(models.Model):
+    class Program(models.TextChoices):
+        MAIN = "main", "Основная программа фонда"
+        NTO = "nto", "Поддержка поездки на финал НТО"
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="program_preferences")
+    main_enabled = models.BooleanField(default=False)
+    nto_enabled = models.BooleanField(default=False)
+    active_program = models.CharField(max_length=4, choices=Program.choices, blank=True, default="")
+
+    class Meta:
+        constraints = [models.CheckConstraint(
+            check=models.Q(active_program="") | models.Q(active_program="main", main_enabled=True) | models.Q(active_program="nto", nto_enabled=True),
+            name="active_program_is_connected",
+        )]
+
+
 class RegistrationPersonalData(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True,
                                 help_text="Ссылка на созданного пользователя после завершения регистрации.")

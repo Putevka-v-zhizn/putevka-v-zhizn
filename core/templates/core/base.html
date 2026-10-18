@@ -57,13 +57,13 @@
 {% include 'core/_topbar.html' %}
 <div class="container-fluid">
     <div class="row">
-        {% if user.is_authenticated %}
+        {% if show_program_navigation or user.is_staff %}
             <aside class="col-12 col-lg-3 col-xl-2 d-print-none">
                 {% include 'core/_sidebar.html' %}
             </aside>
         {% endif %}
 
-        <main class="py-4 {% if user.is_authenticated %}col-12 col-lg-9 col-xl-10{% else %}col-12{% endif %}">
+        <main class="py-4 {% if show_program_navigation or user.is_staff %}col-12 col-lg-9 col-xl-10{% else %}col-12{% endif %}">
             {% block content %}{% endblock %}
         </main>
     </div>

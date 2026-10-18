@@ -40,6 +40,8 @@ from .models import UserNotification, Notification
 
 from .services.email_service import send_email_message, send_email_verification_code
 from .services.zvonok_service import initiate_zvonok_verification, poll_zvonok_status
+from .services.programs import get_program_preferences
+from .models import UserProgramPreferences
 from django.db import transaction
 from django.utils import timezone
 
@@ -144,6 +146,7 @@ def register_initial(request):
                     activation_token=uuid.uuid4()
                 )
                 user_info = UserInfo.objects.create(user=user)
+                UserProgramPreferences.objects.create(user=user)
 
                 new_attempt = RegistrationPersonalData.objects.create(
                     user=user,
@@ -427,7 +430,9 @@ def finish_registration(request):
 
     login(request, user)
 
-    return render(request, 'registration/registration_complete.html', {'user': user, 'nto_campaign_slug': attempt.nto_campaign_slug})
+    if not get_program_preferences(user).active_program:
+        return redirect('programs')
+    return render(request, 'registration/registration_complete.html', {'user': user})
 
 @ensure_registration_gate('protected')
 @require_selection_step(UserInfo.SelectionStep.ML)
