@@ -1,0 +1,25 @@
+{% extends "nto_travel/base.html" %}
+{% block title %}Заявка НТО №{{ application.pk }}{% endblock %}
+{% block nto_content %}
+<div class="container py-4">
+  <a href="{% url 'nto_staff:queue' %}">← Очередь НТО</a>
+  <h1 class="h3 mt-3">Заявка №{{ application.pk }} · {{ application.last_name }} {{ application.first_name }}</h1>
+  <p>Статус: {{ application.get_status_display }} · {{ application.campaign.name }}</p>
+  <h2 class="h5">Профили</h2><ol>{% for row in ranked_profiles %}<li>{{ row.name_snapshot|default:row.profile.name }} — {{ row.city_snapshot|default:row.profile.final_city }}</li>{% endfor %}</ol>
+  {% include "nto_travel/_answers.html" %}
+  <p class="small">Согласие: {{ application.consent_revision.version|default:"—" }} · {{ application.consent_accepted_at|date:"d.m.Y H:i" }}</p>
+  {% if perms.nto_travel.review_nto_application %}
+    <h2 class="h5">Внутренняя заметка</h2>
+    <form method="post" action="{% url 'nto_staff:save_note' application.campaign.slug application.pk %}">{% csrf_token %}<textarea name="internal_note" class="form-control mb-2" rows="3">{{ application.internal_note }}</textarea><button class="btn btn-outline-secondary">Сохранить заметку</button></form>
+    {% if application.status == 'submitted' %}
+      <h2 class="h5 mt-4">Вернуть на уточнение</h2>
+      <form method="post" action="{% url 'nto_staff:action' application.campaign.slug application.pk 'clarify' %}">{% csrf_token %}{{ clarification_form.as_p }}<button class="btn btn-warning">Запросить уточнение</button></form>
+      <h2 class="h5 mt-4">Решение</h2>
+      <form method="post" action="{% url 'nto_staff:action' application.campaign.slug application.pk 'approve' %}">{% csrf_token %}{{ decision_form.as_p }}<button class="btn btn-success">Одобрить</button></form>
+      <form class="mt-2" method="post" action="{% url 'nto_staff:action' application.campaign.slug application.pk 'reject' %}">{% csrf_token %}<label for="reject-comment">Причина отказа</label><textarea class="form-control mb-2" name="comment" id="reject-comment" required></textarea><button class="btn btn-danger">Отказать</button></form>
+    {% endif %}
+  {% endif %}
+  <h2 class="h5 mt-4">История</h2>
+  <ul>{% for event in events %}<li>{{ event.created_at|date:"d.m.Y H:i" }} · {{ event.action }} · {{ event.actor|default:"Система" }}{% if event.comment %} · {{ event.comment }}{% endif %}</li>{% endfor %}</ul>
+</div>
+{% endblock %}

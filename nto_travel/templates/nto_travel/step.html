@@ -1,0 +1,44 @@
+{% extends "nto_travel/base.html" %}
+{% block title %}Анкета НТО{% endblock %}
+{% block nto_content %}
+<div class="container py-4" style="max-width: 850px">
+  <a href="{% url 'nto_travel:landing' %}">← Сезоны НТО</a>
+  <h1 class="h3 mt-3">{{ campaign.name }}</h1>
+  <p class="text-muted">{{ application.get_status_display }}{% if application.clarification_due_at %} · ответ до {{ application.clarification_due_at|date:"d.m.Y H:i" }}{% endif %}</p>
+  {% if application.status == 'clarification' and application.public_comment %}
+    <div class="alert alert-info" style="white-space: pre-wrap">{{ application.public_comment }}</div>
+  {% endif %}
+  <nav class="nav nav-pills gap-2 mb-4">
+    <a class="nav-link {% if step == 'personal' %}active{% endif %}" href="{% url 'nto_travel:apply_step' campaign.slug 'personal' %}">1. Участник и финал</a>
+    <a class="nav-link {% if step == 'finance' %}active{% endif %}" href="{% url 'nto_travel:apply_step' campaign.slug 'finance' %}">2. Финансирование</a>
+    <a class="nav-link {% if step == 'motivation' %}active{% endif %}" href="{% url 'nto_travel:apply_step' campaign.slug 'motivation' %}">3. Мотивация</a>
+    <a class="nav-link" href="{% url 'nto_travel:review' campaign.slug %}">4. Проверка</a>
+  </nav>
+  {% if not editable %}<div class="alert alert-warning">Сейчас заявка доступна только для просмотра.</div>{% endif %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+    {% for field in form.visible_fields %}
+      <div class="mb-3">
+        <label class="form-label d-block" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+      </div>
+    {% endfor %}
+    {% if step == 'personal' %}
+      <div class="mb-3"><label class="form-label">Email</label><input class="form-control" value="{{ user.email }}" disabled><div class="form-text">Адрес берётся из подтверждённого аккаунта.</div></div>
+      <h2 class="h5 mt-4">Профили НТО по приоритету</h2>
+      <p class="text-muted">Отметь профили, в финал которых вышел(вышла), и укажи приоритеты подряд с 1. Город поездки берётся из первого профиля.</p>
+      {% for error in ranking.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+      {% for profile, choice_field, rank_field in ranking.profile_fields %}
+      <div class="row align-items-center border rounded p-2 mb-2">
+        <div class="col-md-9">{{ choice_field }} <label for="{{ choice_field.id_for_label }}">{{ profile.name }} — {{ profile.final_city }}</label></div>
+        <div class="col-md-3">{{ rank_field }}{% for error in rank_field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>
+      </div>
+      {% empty %}<div class="alert alert-warning">Профили пока не опубликованы.</div>{% endfor %}
+    {% endif %}
+    {% if editable %}<button class="btn btn-primary" type="submit">Сохранить и продолжить</button>{% endif %}
+    <a class="btn btn-outline-secondary" href="{% url 'nto_travel:review' campaign.slug %}">Сводка заявки</a>
+  </form>
+</div>
+{% endblock %}

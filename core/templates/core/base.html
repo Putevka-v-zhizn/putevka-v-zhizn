@@ -2,6 +2,7 @@
 <!doctype html>
 <html lang="ru" data-bs-theme="light">
 <head>
+    {% if not suppress_analytics %}
     <!-- Yandex.Metrika counter -->
     <script type="text/javascript">
         (function (m, e, t, r, i, k, a) {
@@ -37,6 +38,7 @@
         <div><img src="https://mc.yandex.ru/watch/107157013" style="position:absolute; left:-9999px;" alt=""/></div>
     </noscript>
     <!-- /Yandex.Metrika counter -->
+    {% endif %}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Портал стипендиатов{% endblock %}</title>

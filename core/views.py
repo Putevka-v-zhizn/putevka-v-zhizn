@@ -112,6 +112,15 @@ def index(request):
     return render(request, 'core/index.html')
 
 
+def _registration_nto_slug(request):
+    from nto_travel.models import NtoCampaign
+
+    slug = (request.POST.get('nto') or request.GET.get('nto') or '').strip()
+    if slug and NtoCampaign.objects.filter(slug=slug, state=NtoCampaign.State.PUBLISHED).exists():
+        return slug
+    return ''
+
+
 @ensure_registration_gate('entry')
 def register_initial(request):
     if request.method == 'POST':
@@ -141,7 +150,8 @@ def register_initial(request):
                     telegram_account=telegram_account,
                     email=email,
                     password=user.password,
-                    current_step='email_verification'
+                    current_step='email_verification',
+                    nto_campaign_slug=_registration_nto_slug(request),
                 )
                 new_attempt.generate_email_code()
                 send_email_verification_code(new_attempt)
@@ -150,7 +160,11 @@ def register_initial(request):
     else:
         form = RegistrationForm()
 
-    return render(request, 'registration/register_initial.html', {'form': form, "password_help": password_validators_help_text_html()})
+    return render(request, 'registration/register_initial.html', {
+        'form': form,
+        'password_help': password_validators_help_text_html(),
+        'nto_campaign_slug': _registration_nto_slug(request),
+    })
 
 
 COOLDOWN_SECONDS = 10
@@ -413,7 +427,7 @@ def finish_registration(request):
 
     login(request, user)
 
-    return render(request, 'registration/registration_complete.html', {'user': user})
+    return render(request, 'registration/registration_complete.html', {'user': user, 'nto_campaign_slug': attempt.nto_campaign_slug})
 
 @ensure_registration_gate('protected')
 @require_selection_step(UserInfo.SelectionStep.ML)

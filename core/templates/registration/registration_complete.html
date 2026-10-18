@@ -12,8 +12,8 @@
             Вы теперь можете пользоваться всеми функциями нашего сайта.
         </p>
         <div class="text-center">
-            <a href="{% url 'index' %}" class="btn btn-primary btn-lg">
-                Перейти в личный кабинет
+            <a href="{% if nto_campaign_slug %}{% url 'nto_travel:apply_step' nto_campaign_slug 'personal' %}{% else %}{% url 'index' %}{% endif %}" class="btn btn-primary btn-lg">
+                {% if nto_campaign_slug %}Перейти к заявке НТО{% else %}Перейти в личный кабинет{% endif %}
             </a>
         </div>
     {% else %}

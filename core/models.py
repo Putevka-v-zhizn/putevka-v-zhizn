@@ -104,6 +104,7 @@ class TelegramAccount(models.Model):
 class RegistrationPersonalData(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True,
                                 help_text="Ссылка на созданного пользователя после завершения регистрации.")
+    nto_campaign_slug = models.SlugField(max_length=80, blank=True, default="", help_text="Сезон НТО, с которого начата регистрация.")
 
     email = models.EmailField(unique=True, help_text="Email, введенный пользователем.")
     password = models.CharField(max_length=128, help_text="Хешированный пароль пользователя.")
