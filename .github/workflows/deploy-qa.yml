@@ -14,6 +14,11 @@ on:
         options:
           - deploy
           - stop
+          - seed-test-users
+      accounts_json:
+        description: "QA accounts with username, program and password_hash; never plaintext passwords"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -214,3 +219,38 @@ jobs:
           cd '$DEPLOY_PATH'
           docker compose --env-file .env -f docker-compose.qa.yml down --remove-orphans
           EOF
+
+  seed-test-users:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'seed-test-users'
+    runs-on: ubuntu-latest
+    environment: qa
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure QA SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.QA_DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.QA_DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/qa_deploy_key
+          chmod 600 ~/.ssh/qa_deploy_key
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+      - name: Create empty QA accounts
+        env:
+          DEPLOY_HOST: ${{ secrets.QA_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.QA_DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.QA_DEPLOY_PATH }}
+          ACCOUNTS_JSON: ${{ inputs.accounts_json }}
+        run: |
+          python - <<'PY'
+          import json, os, pathlib, shlex, subprocess
+          accounts = json.loads(os.environ['ACCOUNTS_JSON'])
+          script = 'ACCOUNTS = ' + repr(accounts) + '\n'
+          script += pathlib.Path('deploy/qa/create_test_users.py').read_text()
+          remote = 'cd ' + shlex.quote(os.environ['DEPLOY_PATH'])
+          remote += ' && docker compose --env-file .env -f docker-compose.qa.yml exec -T web python manage.py shell'
+          subprocess.run(['ssh', '-i', os.path.expanduser('~/.ssh/qa_deploy_key'),
+                          os.environ['DEPLOY_USER'] + '@' + os.environ['DEPLOY_HOST'], remote],
+                         input=script, text=True, check=True)
+          PY
