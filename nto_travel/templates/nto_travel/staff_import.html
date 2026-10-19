@@ -1,0 +1,17 @@
+{% extends "nto_travel/base.html" %}
+{% block title %}Импорт профилей НТО{% endblock %}
+{% block nto_content %}
+<div class="container py-4">
+  <h1 class="h3">Импорт профилей: {{ campaign.name }}</h1>
+  <p>В первой строке XLSX должны быть столбцы: <code>external_code</code>, <code>name</code>, <code>final_city</code>.</p>
+  <p><a class="btn btn-outline-secondary" href="{% url 'nto_staff:profile_template' campaign.slug %}">Скачать шаблон XLSX</a></p>
+  <p><a class="btn btn-outline-secondary" href="{% url 'nto_staff:profile_export' campaign.slug %}">Скачать текущие профили XLSX</a></p>
+  <p class="text-muted">Выгружаются активные профили этого сезона. Отредактируйте файл и загрузите его обратно. Сохраняйте коды существующих профилей: по ним обновляются название и город. Профили, удалённые из файла, при импорте станут неактивными.</p>
+  <form method="post" enctype="multipart/form-data">{% csrf_token %}{{ form.as_p }}<button class="btn btn-primary">Проверить файл</button></form>
+  {% if preview %}
+    <div class="alert alert-info mt-4">Проверено {{ preview.row_count }} профилей. При подтверждении профили, отсутствующие в файле, станут неактивными.</div>
+    <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Код</th><th>Профиль</th><th>Город</th></tr></thead><tbody>{% for row in preview.rows %}<tr><td>{{ row.external_code }}</td><td>{{ row.name }}</td><td>{{ row.final_city }}</td></tr>{% endfor %}</tbody></table></div>
+    <form method="post" action="{% url 'nto_staff:confirm_import' campaign.slug preview.pk %}">{% csrf_token %}<button class="btn btn-success">Подтвердить импорт</button></form>
+  {% endif %}
+</div>
+{% endblock %}

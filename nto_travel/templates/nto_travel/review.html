@@ -1,0 +1,23 @@
+{% extends "nto_travel/base.html" %}
+{% block title %}Проверка заявки НТО{% endblock %}
+{% block nto_content %}
+<div class="container py-4">
+  <h1 class="h3">Проверь ответы перед отправкой</h1>
+  <p>Статус: {{ application.get_status_display }}</p>
+  <h2 class="h5">Профили</h2>
+  <ol>{% for row in ranked_profiles %}<li>{{ row.name_snapshot|default:row.profile.name }} — {{ row.city_snapshot|default:row.profile.final_city }}</li>{% empty %}<li>Не выбраны</li>{% endfor %}</ol>
+  {% include "nto_travel/_answers.html" %}
+  {% if editable %}
+    <div class="d-flex flex-wrap gap-2 mb-3"><a class="btn btn-outline-secondary" href="{% url 'nto_travel:apply_step' application.campaign.slug 'personal' %}">Исправить участника и профили</a> <a class="btn btn-outline-secondary" href="{% url 'nto_travel:apply_step' application.campaign.slug 'finance' %}">Финансирование</a> <a class="btn btn-outline-secondary" href="{% url 'nto_travel:apply_step' application.campaign.slug 'motivation' %}">Мотивация</a></div>
+    <form method="post" action="{% url 'nto_travel:submit' application.campaign.slug %}">
+      {% csrf_token %}
+      <div class="card mb-3"><div class="card-body">
+        <h2 class="h6">Согласие на обработку персональных данных</h2>
+        {% if application.campaign.consent_revision %}<div style="white-space: pre-wrap">{{ application.campaign.consent_revision.text }}</div>{% endif %}
+        <label><input type="checkbox" name="accept_consent" required> Даю согласие на обработку персональных данных для этой заявки</label>
+      </div></div>
+      <button class="btn btn-primary" type="submit">Отправить заявку</button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

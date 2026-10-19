@@ -40,6 +40,8 @@ from .models import UserNotification, Notification
 
 from .services.email_service import send_email_message, send_email_verification_code
 from .services.zvonok_service import initiate_zvonok_verification, poll_zvonok_status
+from .services.programs import get_program_preferences
+from .models import UserProgramPreferences
 from django.db import transaction
 from django.utils import timezone
 
@@ -112,6 +114,15 @@ def index(request):
     return render(request, 'core/index.html')
 
 
+def _registration_nto_slug(request):
+    from nto_travel.models import NtoCampaign
+
+    slug = (request.POST.get('nto') or request.GET.get('nto') or '').strip()
+    if slug and NtoCampaign.objects.filter(slug=slug, state=NtoCampaign.State.PUBLISHED).exists():
+        return slug
+    return ''
+
+
 @ensure_registration_gate('entry')
 def register_initial(request):
     if request.method == 'POST':
@@ -135,13 +146,15 @@ def register_initial(request):
                     activation_token=uuid.uuid4()
                 )
                 user_info = UserInfo.objects.create(user=user)
+                UserProgramPreferences.objects.create(user=user)
 
                 new_attempt = RegistrationPersonalData.objects.create(
                     user=user,
                     telegram_account=telegram_account,
                     email=email,
                     password=user.password,
-                    current_step='email_verification'
+                    current_step='email_verification',
+                    nto_campaign_slug=_registration_nto_slug(request),
                 )
                 new_attempt.generate_email_code()
                 send_email_verification_code(new_attempt)
@@ -150,7 +163,11 @@ def register_initial(request):
     else:
         form = RegistrationForm()
 
-    return render(request, 'registration/register_initial.html', {'form': form, "password_help": password_validators_help_text_html()})
+    return render(request, 'registration/register_initial.html', {
+        'form': form,
+        'password_help': password_validators_help_text_html(),
+        'nto_campaign_slug': _registration_nto_slug(request),
+    })
 
 
 COOLDOWN_SECONDS = 10
@@ -413,6 +430,8 @@ def finish_registration(request):
 
     login(request, user)
 
+    if not get_program_preferences(user).active_program:
+        return redirect('programs')
     return render(request, 'registration/registration_complete.html', {'user': user})
 
 @ensure_registration_gate('protected')

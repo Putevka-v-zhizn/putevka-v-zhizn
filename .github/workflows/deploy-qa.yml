@@ -14,6 +14,12 @@ on:
         options:
           - deploy
           - stop
+          - seed-test-users
+          - seed-nto-demo
+      accounts_json:
+        description: "QA accounts with username, program and password_hash; never plaintext passwords"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -162,9 +168,19 @@ jobs:
           cd '$DEPLOY_PATH'
           echo "Deploying QA branch: $DEPLOY_BRANCH"
           docker compose --env-file .env -f docker-compose.qa.yml pull
+          # Do not let the validation container consume the remaining SSH script.
+          docker compose --env-file .env -f docker-compose.qa.yml run --rm --no-deps -T --interactive=false caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
           docker compose --env-file .env -f docker-compose.qa.yml up -d --remove-orphans
+          # rsync replaces the bind-mounted file; recreate to mount its new inode.
+          docker compose --env-file .env -f docker-compose.qa.yml up -d --no-deps --force-recreate caddy
           docker compose --env-file .env -f docker-compose.qa.yml ps
           EOF
+
+      - name: Check QA admin and static files over HTTPS
+        timeout-minutes: 6
+        env:
+          QA_DOMAIN: ${{ secrets.QA_DOMAIN }}
+        run: python deploy/qa/check_http.py "https://$QA_DOMAIN"
 
   stop:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'stop'
@@ -204,3 +220,42 @@ jobs:
           cd '$DEPLOY_PATH'
           docker compose --env-file .env -f docker-compose.qa.yml down --remove-orphans
           EOF
+
+  seed-test-users:
+    if: github.event_name == 'workflow_dispatch' && (github.event.inputs.action == 'seed-test-users' || github.event.inputs.action == 'seed-nto-demo')
+    runs-on: ubuntu-latest
+    environment: qa
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure QA SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.QA_DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.QA_DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/qa_deploy_key
+          chmod 600 ~/.ssh/qa_deploy_key
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+      - name: Prepare QA test data
+        env:
+          DEPLOY_HOST: ${{ secrets.QA_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.QA_DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.QA_DEPLOY_PATH }}
+          ACCOUNTS_JSON: ${{ inputs.accounts_json }}
+          QA_ACTION: ${{ inputs.action }}
+        run: |
+          python - <<'PY'
+          import json, os, pathlib, shlex, subprocess
+          if os.environ['QA_ACTION'] == 'seed-nto-demo':
+              script = 'SEED_QA_NTO = True\n' + pathlib.Path('deploy/qa/create_nto_demo.py').read_text()
+          else:
+              accounts = json.loads(os.environ['ACCOUNTS_JSON'])
+              script = 'ACCOUNTS = ' + repr(accounts) + '\n'
+              script += pathlib.Path('deploy/qa/create_test_users.py').read_text()
+          remote = 'cd ' + shlex.quote(os.environ['DEPLOY_PATH'])
+          remote += ' && docker compose --env-file .env -f docker-compose.qa.yml exec -T web python manage.py shell'
+          subprocess.run(['ssh', '-i', os.path.expanduser('~/.ssh/qa_deploy_key'),
+                          os.environ['DEPLOY_USER'] + '@' + os.environ['DEPLOY_HOST'], remote],
+                         input=script, text=True, check=True)
+          PY
