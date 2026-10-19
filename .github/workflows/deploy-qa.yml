@@ -15,6 +15,7 @@ on:
           - deploy
           - stop
           - seed-test-users
+          - seed-nto-demo
       accounts_json:
         description: "QA accounts with username, program and password_hash; never plaintext passwords"
         required: false
@@ -221,7 +222,7 @@ jobs:
           EOF
 
   seed-test-users:
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'seed-test-users'
+    if: github.event_name == 'workflow_dispatch' && (github.event.inputs.action == 'seed-test-users' || github.event.inputs.action == 'seed-nto-demo')
     runs-on: ubuntu-latest
     environment: qa
     steps:
@@ -236,18 +237,22 @@ jobs:
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/qa_deploy_key
           chmod 600 ~/.ssh/qa_deploy_key
           ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
-      - name: Create empty QA accounts
+      - name: Prepare QA test data
         env:
           DEPLOY_HOST: ${{ secrets.QA_DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.QA_DEPLOY_USER }}
           DEPLOY_PATH: ${{ secrets.QA_DEPLOY_PATH }}
           ACCOUNTS_JSON: ${{ inputs.accounts_json }}
+          QA_ACTION: ${{ inputs.action }}
         run: |
           python - <<'PY'
           import json, os, pathlib, shlex, subprocess
-          accounts = json.loads(os.environ['ACCOUNTS_JSON'])
-          script = 'ACCOUNTS = ' + repr(accounts) + '\n'
-          script += pathlib.Path('deploy/qa/create_test_users.py').read_text()
+          if os.environ['QA_ACTION'] == 'seed-nto-demo':
+              script = 'SEED_QA_NTO = True\n' + pathlib.Path('deploy/qa/create_nto_demo.py').read_text()
+          else:
+              accounts = json.loads(os.environ['ACCOUNTS_JSON'])
+              script = 'ACCOUNTS = ' + repr(accounts) + '\n'
+              script += pathlib.Path('deploy/qa/create_test_users.py').read_text()
           remote = 'cd ' + shlex.quote(os.environ['DEPLOY_PATH'])
           remote += ' && docker compose --env-file .env -f docker-compose.qa.yml exec -T web python manage.py shell'
           subprocess.run(['ssh', '-i', os.path.expanduser('~/.ssh/qa_deploy_key'),
