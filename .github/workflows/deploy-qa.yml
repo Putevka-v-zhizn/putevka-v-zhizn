@@ -162,10 +162,11 @@ jobs:
           cd '$DEPLOY_PATH'
           echo "Deploying QA branch: $DEPLOY_BRANCH"
           docker compose --env-file .env -f docker-compose.qa.yml pull
-          docker compose --env-file .env -f docker-compose.qa.yml run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          # Do not let the validation container consume the remaining SSH script.
+          docker compose --env-file .env -f docker-compose.qa.yml run --rm --no-deps -T --interactive=false caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
           docker compose --env-file .env -f docker-compose.qa.yml up -d --remove-orphans
-          # A bind-mounted Caddyfile can change without recreating the container.
-          docker compose --env-file .env -f docker-compose.qa.yml restart caddy
+          # rsync replaces the bind-mounted file; recreate to mount its new inode.
+          docker compose --env-file .env -f docker-compose.qa.yml up -d --no-deps --force-recreate caddy
           docker compose --env-file .env -f docker-compose.qa.yml ps
           EOF
 
