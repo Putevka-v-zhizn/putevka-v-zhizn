@@ -3,7 +3,7 @@
 {% block nto_content %}
 <div class="container py-4">
   <h1 class="h3">Поддержка поездки на финал НТО</h1>
-  <p class="text-muted">Заявка для участников, вышедших в заключительный этап НТО. Решение принимает команда фонда.</p>
+  <p class="text-muted">Заявка на поддержку поездки на заключительный этап НТО. Можно заполнить её предварительно; подача заявки не гарантирует приглашение в финал или получение поддержки. Решение принимает команда фонда.</p>
   {% for campaign in campaigns %}
   <div class="card mb-3"><div class="card-body">
     <h2 class="h5">{{ campaign.name }}</h2>
@@ -20,7 +20,7 @@
   {% empty %}<div class="alert alert-info">Сейчас нет открытого приёма заявок НТО.</div>{% endfor %}
   {% if user.is_authenticated and applications %}
     <h2 class="h5 mt-4">Мои заявки</h2>
-    {% for application in applications %}<p><a href="{% url 'nto_travel:application' application.campaign.slug %}">{{ application.campaign.name }}</a> — {{ application.get_status_display }}</p>{% endfor %}
+    {% for application in applications %}<p><a class="btn btn-outline-secondary" href="{% url 'nto_travel:application' application.campaign.slug %}">{{ application.campaign.name }}</a> — {{ application.get_status_display }}</p>{% endfor %}
   {% endif %}
 </div>
 {% endblock %}

@@ -1,7 +1,11 @@
 <div class="list-group list-group-flush py-3 d-none d-md-block">
+    {% if user.is_staff %}
+        <a class="list-group-item list-group-item-action" href="{% url 'staff_users_list' %}">Основной отбор</a>
+    {% endif %}
     {% if user.is_staff and perms.nto_travel.view_nto_application %}
         <a class="list-group-item list-group-item-action" href="{% url 'nto_staff:queue' %}">Очередь заявок НТО</a>
     {% endif %}
+    {% if not user.is_staff %}
     <a class="list-group-item list-group-item-action d-flex align-items-center {% if active == 'personal_info' %} active{% endif %}"
        href="{% url 'personal_info' %}">
         Личная информация
@@ -76,14 +80,19 @@
        href="{% url 'feedback' %}">
         Связь с фондом
     </a>
+    {% endif %}
 </div>
 
 
 <nav class="d-md-none mobile-tabs sticky-top bg-white border-top shadow-sm">
     <div class="d-flex justify-content-around py-2">
+        {% if user.is_staff %}
+            <a href="{% url 'staff_users_list' %}" class="text-center"><div class="small">Основной отбор</div></a>
+        {% endif %}
         {% if user.is_staff and perms.nto_travel.view_nto_application %}
             <a href="{% url 'nto_staff:queue' %}" class="text-center"><div class="small">Заявки НТО</div></a>
         {% endif %}
+        {% if not user.is_staff %}
         <a href="{% url 'personal_info' %}"
            class="text-center {% if active == 'personal_info' %}text-primary{% else %}text-secondary{% endif %}">
             <div class="small">Профиль</div>
@@ -168,5 +177,6 @@
            class="text-center {% if active == 'feedback' %}text-primary{% else %}text-secondary{% endif %}">
             <div class="small">Связь с фондом</div>
         </a>
+        {% endif %}
     </div>
 </nav>

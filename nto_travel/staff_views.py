@@ -1,20 +1,22 @@
-import json
 from io import BytesIO
+from copy import deepcopy
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db.models import Q
+from django.db.models import F, Q
+from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from openpyxl import Workbook
 
-from .forms import ClarificationForm, DecisionForm, ProfileImportForm
+from .forms import ClarificationForm, DecisionForm, ProfileImportForm, PersonalForm, FinanceForm, MotivationForm, ProfileRankingForm
+from .exporting import application_workbook
 from .models import NtoApplication, NtoApplicationEvent, NtoCampaign, NtoProfile, NtoProfileImport
-from .presentation import LABELS, answer_rows
-from .services import apply_profile_import, parse_profile_workbook, review_application
+from .presentation import LABELS, answer_rows, event_rows
+from .services import apply_profile_import, parse_profile_workbook, review_application, save_ranked_profiles
 
 
 def _require(request, permission):
@@ -56,13 +58,68 @@ def queue(request):
 
 
 @login_required
+def edit(request, slug, application_id):
+    _require(request, "view_nto_application")
+    _require(request, "manage_nto_campaign")
+    with transaction.atomic():
+        query = NtoApplication.objects.select_related("campaign", "user")
+        if request.method == "POST":
+            query = query.select_for_update()
+        app = get_object_or_404(query, pk=application_id, campaign__slug=slug)
+        if request.method == "GET":
+            NtoApplicationEvent.objects.create(application=app, actor=request.user, action="staff_view", old_status=app.status, new_status=app.status)
+        data = request.POST if request.method == "POST" else None
+        before = {key: deepcopy(getattr(app, key)) for key, _ in LABELS}
+        forms = [cls(data, instance=app, prefix=prefix) for cls, prefix in (
+            (PersonalForm, "personal"), (FinanceForm, "finance"), (MotivationForm, "motivation"),
+        )]
+        for key in ("finalist_declared", "parent_contact_declared"):
+            forms[0].fields.pop(key, None)
+        ranking = ProfileRankingForm(data, campaign=app.campaign, application=app)
+        previous = {row.profile_id: (row.name_snapshot, row.city_snapshot) for row in app.ranked_profiles.all()}
+        old_order = list(app.ranked_profiles.order_by("rank").values_list("profile_id", flat=True))
+        if request.method == "POST":
+            valid = [form.is_valid() for form in forms] + [ranking.is_valid()]
+            if all(valid):
+                for form in forms:
+                    form.save(commit=False)
+                for key in ("universities", "specializations", "achievements"):
+                    setattr(app, key, forms[2].cleaned_data[key])
+                profiles = ranking.selected_profiles
+                profiles_changed = old_order != [profile.pk for profile in profiles]
+                if profiles_changed:
+                    save_ranked_profiles(app, profiles)
+                    for row in app.ranked_profiles.select_related("profile"):
+                        row.name_snapshot, row.city_snapshot = previous.get(row.profile_id, (row.profile.name, row.profile.final_city))
+                        row.save(update_fields=["name_snapshot", "city_snapshot"])
+                first = app.ranked_profiles.select_related("profile").order_by("rank").first()
+                app.final_city = (first.city_snapshot or first.profile.final_city) if first else ""
+                changed = [label for key, label in LABELS if before[key] != getattr(app, key)]
+                if profiles_changed:
+                    changed.append("Профили по приоритету")
+                if changed:
+                    app.save()
+                    NtoApplicationEvent.objects.create(application=app, actor=request.user, action="staff_edit", old_status=app.status, new_status=app.status, comment="Изменены поля: " + ", ".join(changed))
+                messages.success(request, "Изменения анкеты сохранены.")
+                return redirect("nto_staff:detail", slug=slug, application_id=app.pk)
+    return render(request, "nto_travel/staff_edit.html", {
+        "application": app, "forms": forms, "ranking": ranking, "suppress_analytics": True,
+    })
+
+
+@login_required
 def detail(request, slug, application_id):
     _require(request, "view_nto_application")
     app = get_object_or_404(NtoApplication.objects.select_related("campaign", "user"), pk=application_id, campaign__slug=slug)
     NtoApplicationEvent.objects.create(application=app, actor=request.user, action="staff_view", old_status=app.status, new_status=app.status)
+    events = app.events.select_related("actor").order_by("-created_at", "-pk")
+    access_events = events.filter(action__in=["staff_view", "export"])
+    history_events = events.exclude(action__in=["staff_view", "export"])
     return render(request, "nto_travel/staff_detail.html", {
         "application": app, "ranked_profiles": app.ranked_profiles.all(),
-        "events": app.events.all()[:50], "clarification_form": ClarificationForm(auto_id="clarification_%s"),
+        "events": event_rows(history_events[:50]), "history_count": history_events.count(),
+        "access_events": event_rows(access_events[:50]), "access_count": access_events.count(),
+        "clarification_form": ClarificationForm(auto_id="clarification_%s"),
         "decision_form": DecisionForm(auto_id="decision_%s"), "answer_rows": answer_rows(app), "suppress_analytics": True,
     })
 
@@ -107,37 +164,18 @@ def save_note(request, slug, application_id):
     return redirect("nto_staff:detail", slug=slug, application_id=application_id)
 
 
-def _excel_safe(value):
-    if isinstance(value, (list, dict)):
-        value = json.dumps(value, ensure_ascii=False)
-    if value is None:
-        return ""
-    if hasattr(value, "tzinfo") and value.tzinfo is not None:
-        return timezone.localtime(value).strftime("%d.%m.%Y %H:%M:%S %Z")
-    if isinstance(value, str) and value.lstrip().startswith(("=", "+", "-", "@")):
-        return "'" + value
-    return value
-
-
 @login_required
 def export(request, slug):
     _require(request, "export_nto_application")
     campaign = get_object_or_404(NtoCampaign, slug=slug)
-    fields = [field for field in NtoApplication._meta.fields if field.name not in {"id", "user", "campaign", "consent_revision", "decided_by", "internal_note"}]
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Заявки НТО"
-    labels = dict(LABELS)
-    ws.append(["ID", "ID пользователя", "Сезон", "Профили по приоритету", "Редакция согласия"] + [labels.get(field.name, field.verbose_name) for field in fields])
-    for app in _filtered(campaign, request.GET).iterator(chunk_size=200):
-        profiles = "; ".join(f"{row.rank}. {row.name_snapshot or row.profile.name} ({row.city_snapshot or row.profile.final_city})" for row in app.ranked_profiles.all())
-        ws.append([
-            app.pk, app.user_id, _excel_safe(campaign.academic_year), _excel_safe(profiles),
-            _excel_safe(app.consent_revision.version if app.consent_revision else ""),
-        ] + [_excel_safe(getattr(app, field.name)) for field in fields])
-        NtoApplicationEvent.objects.create(application=app, actor=request.user, action="export", old_status=app.status, new_status=app.status)
+    applications = list(_filtered(campaign, request.GET).order_by(F("last_submitted_at").desc(nulls_last=True), "-pk"))
+    wb = application_workbook(applications)
     out = BytesIO()
     wb.save(out)
+    NtoApplicationEvent.objects.bulk_create([
+        NtoApplicationEvent(application=app, actor=request.user, action="export", old_status=app.status, new_status=app.status)
+        for app in applications
+    ])
     response = HttpResponse(out.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     response["Content-Disposition"] = f'attachment; filename="nto-{campaign.slug}.xlsx"'
     return response
@@ -169,17 +207,36 @@ def profile_import(request, slug):
 def profile_template(request, slug):
     _require(request, "manage_nto_campaign")
     get_object_or_404(NtoCampaign, slug=slug)
+    return _profile_workbook([], "nto-profiles-template.xlsx")
+
+
+@login_required
+def profile_export(request, slug):
+    _require(request, "manage_nto_campaign")
+    campaign = get_object_or_404(NtoCampaign, slug=slug)
+    rows = NtoProfile.objects.filter(campaign=campaign, is_active=True).order_by("external_code").values_list("external_code", "name", "final_city")
+    return _profile_workbook(rows, f"nto-profiles-{campaign.slug}.xlsx")
+
+
+def _profile_workbook(rows, filename):
     book = Workbook()
     sheet = book.active
     sheet.title = "Профили НТО"
     sheet.append(["external_code", "name", "final_city"])
+    for row in rows:
+        sheet.append(list(row))
+        # Explicit text cells preserve codes and prevent spreadsheet formulas.
+        for cell in sheet[sheet.max_row]:
+            cell.data_type = "s"
+    sheet.freeze_panes = "A2"
+    sheet.auto_filter.ref = sheet.dimensions
     sheet.column_dimensions["A"].width = 24
     sheet.column_dimensions["B"].width = 50
     sheet.column_dimensions["C"].width = 28
     output = BytesIO()
     book.save(output)
     response = HttpResponse(output.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    response["Content-Disposition"] = 'attachment; filename="nto-profiles-template.xlsx"'
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
 
 

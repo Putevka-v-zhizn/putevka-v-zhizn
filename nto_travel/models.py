@@ -121,6 +121,7 @@ class NtoApplication(models.Model):
     phone = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)
     telegram = models.CharField(max_length=100, blank=True)
+    is_adult = models.BooleanField(null=True, blank=True)
     parent_name = models.CharField(max_length=255, blank=True)
     parent_role = models.CharField(max_length=100, blank=True)
     parent_phone = models.CharField(max_length=20, blank=True)

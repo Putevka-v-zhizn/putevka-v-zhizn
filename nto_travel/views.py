@@ -65,6 +65,12 @@ def apply_step(request, slug, step):
         form = form_class(instance=app)
         ranking = ProfileRankingForm(campaign=campaign, application=app) if step == "personal" else None
     editable = _editable(app)
+    if not editable:
+        for field in form.fields.values():
+            field.disabled = True
+        if ranking is not None:
+            for field in ranking.fields.values():
+                field.disabled = True
     return render(request, "nto_travel/step.html", {
         "campaign": campaign, "application": app, "step": step, "form": form,
         "ranking": ranking, "editable": editable, "suppress_analytics": True,

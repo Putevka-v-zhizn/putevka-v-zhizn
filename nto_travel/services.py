@@ -1,5 +1,4 @@
 import hashlib
-import re
 from io import BytesIO
 from zipfile import BadZipFile
 
@@ -13,8 +12,9 @@ from openpyxl.utils.exceptions import InvalidFileException
 from core.models import Notification, UserNotification
 from config import BASE_URL
 from scholar_form.models import UserInfo
-from .forms import CIRCUMSTANCE_CHOICES, POSSIBLE_PAYER_CHOICES, PREPARATION_CHOICES, PREVIOUS_PAYER_CHOICES, exclusive
+from .forms import CIRCUMSTANCE_CHOICES, POSSIBLE_PAYER_CHOICES, PREPARATION_CHOICES, PREVIOUS_PAYER_CHOICES, MATERIAL_CHOICES, exclusive
 from .models import NtoApplication, NtoApplicationEvent, NtoApplicationProfile, NtoCampaign, NtoProfile, NtoProfileImport
+from .validators import normalize_phone
 
 
 def create_application(user, campaign):
@@ -70,13 +70,18 @@ def validate_submission(app):
         if not condition:
             errors[key] = message
 
-    for key in ("last_name", "first_name", "region", "city", "phone", "email", "parent_name", "parent_role", "parent_phone"):
+    for key in ("last_name", "first_name", "region", "city", "phone", "email", "telegram"):
         require(bool((getattr(app, key) or "").strip()), key)
     for key in ("phone", "parent_phone"):
-        require(bool(re.fullmatch(r"\+[0-9]{10,15}", getattr(app, key) or "")), key, "Телефон должен содержать от 10 до 15 цифр.")
+        try:
+            setattr(app, key, normalize_phone(getattr(app, key)))
+        except ValidationError as exc:
+            errors[key] = exc.messages[0]
     require(app.school_class is not None and 1 <= app.school_class <= 11, "school_class")
-    require(app.finalist_declared, "finalist_declared")
-    require(app.parent_contact_declared, "parent_contact_declared")
+    require(app.is_adult is not None, "is_adult")
+    if app.is_adult is False:
+        require(bool(app.parent_name.strip()), "parent_name")
+        require(bool(app.parent_phone.strip()), "parent_phone")
     ranks = list(app.ranked_profiles.select_related("profile").order_by("rank"))
     require(bool(ranks) and [p.rank for p in ranks] == list(range(1, len(ranks) + 1)), "profiles", "Выберите профили и задайте приоритеты подряд с 1.")
     require(all(row.profile.campaign_id == app.campaign_id and row.profile.is_active for row in ranks), "profiles", "Выберите активные профили этого сезона.")
@@ -84,37 +89,31 @@ def validate_submission(app):
     if app.previous_final is True:
         require(_valid_list(app.previous_payers, PREVIOUS_PAYER_CHOICES, {"local", "unknown"}) and bool(app.previous_payers), "previous_payers")
     require(_valid_list(app.possible_payers, POSSIBLE_PAYER_CHOICES, {"not_needed", "unknown", "none"}) and bool(app.possible_payers), "possible_payers")
-    support_values = dict(NtoApplication.SupportAnswer.choices)
+    support_values = {value for value, _ in NtoApplication.SupportAnswer.choices if value != "not_discussed"}
     require(app.school_support in support_values, "school_support")
     require(app.parent_support in support_values, "parent_support")
     require(app.ticket_cost is not None and 0 <= app.ticket_cost <= 10000000, "ticket_cost")
-    require(app.income_disclosure in dict(NtoApplication.IncomeDisclosure.choices), "income_disclosure")
-    if app.income_disclosure == NtoApplication.IncomeDisclosure.AMOUNT:
-        require(app.income_per_member is not None and app.income_per_member >= 0, "income_per_member")
-        require(app.income_proof is not None, "income_proof")
-    require(app.family_material_status in dict(UserInfo.FamilyMaterialStatus.choices), "family_material_status")
-    require(_valid_list(app.circumstances, CIRCUMSTANCE_CHOICES, {"none", "declined"}) and bool(app.circumstances), "circumstances")
-    if set(app.circumstances or []) - {"none", "declined"}:
-        require(app.circumstance_proof is not None, "circumstance_proof")
-    if "other" in (app.circumstances or []):
-        require(bool(app.situation_details.strip()), "situation_details")
+    if app.ticket_cost is not None:
+        require(app.ticket_cost == round(app.ticket_cost), "ticket_cost", "Укажи сумму в целых рублях, без копеек.")
+    require(app.income_per_member is not None and app.income_per_member >= 0, "income_per_member")
+    require(app.income_proof is not None, "income_proof")
+    require(app.family_material_status in dict(MATERIAL_CHOICES) or app.family_material_status in dict(UserInfo.FamilyMaterialStatus.choices), "family_material_status")
+    require(_valid_list(app.circumstances, CIRCUMSTANCE_CHOICES, {"none"}) and bool(app.circumstances), "circumstances")
+    require(app.circumstance_proof is not None, "circumstance_proof")
     require(len(app.situation_details or "") <= 1000, "situation_details", "Не более 1000 знаков.")
     for key in ("universities", "specializations"):
         values = getattr(app, key)
-        require(isinstance(values, list) and 1 <= len(values) <= 5 and all(isinstance(v, str) and 0 < len(v.strip()) <= 300 for v in values), key)
-    require(isinstance(app.achievements, list) and len(app.achievements) <= 5 and all(isinstance(v, str) and 0 < len(v.strip()) <= 300 for v in app.achievements), "achievements")
-    require(bool(app.achievements) != bool(app.no_achievements), "achievements", "Укажите достижения или отметьте их отсутствие.")
-    require(_valid_list(app.preparation_methods, PREPARATION_CHOICES, {"none"}) and bool(app.preparation_methods), "preparation_methods")
-    for key, limit in (("olympiad_plans", 3000), ("preparation_details", 3000), ("nto_goal", 2000), ("admission_without_trip", 2000)):
-        value = (getattr(app, key) or "").strip()
-        require(bool(value) and len(value) <= limit, key, f"Обязательный ответ, не более {limit} знаков.")
+        require(isinstance(values, list) and 1 <= len(values) <= 5 and all(isinstance(v, str) and bool(v.strip()) for v in values), key)
+    require(isinstance(app.achievements, list) and len(app.achievements) <= 5 and all(isinstance(v, str) and bool(v.strip()) for v in app.achievements), "achievements")
+    require(_valid_list(app.preparation_methods, PREPARATION_CHOICES), "preparation_methods")
+    for key in ("olympiad_plans", "preparation_details", "nto_goal", "admission_without_trip"):
+        require(bool((getattr(app, key) or "").strip()), key)
     require(app.refused_olympiads is not None, "refused_olympiads")
     if app.refused_olympiads is True:
-        require(bool(app.refusal_reason.strip()) and len(app.refusal_reason) <= 1000, "refusal_reason")
+        require(bool(app.refusal_reason.strip()), "refusal_reason")
     require(app.has_admission_advantages is not None, "has_admission_advantages")
     if app.has_admission_advantages is True:
-        require(bool(app.advantage_details.strip()) and len(app.advantage_details) <= 1000, "advantage_details")
-    require(len(app.free_thoughts or "") <= 1000, "free_thoughts", "Не более 1000 знаков.")
+        require(bool(app.advantage_details.strip()), "advantage_details")
     if errors:
         raise ValidationError(errors)
     return ranks

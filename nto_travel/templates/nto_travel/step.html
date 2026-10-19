@@ -1,8 +1,13 @@
 {% extends "nto_travel/base.html" %}
+{% load static %}
 {% block title %}Анкета НТО{% endblock %}
+{% block extra_head %}
+  {{ block.super }}
+  {% if step == 'personal' %}<link rel="stylesheet" href="{% static 'nto_travel/profile_picker.css' %}">{% endif %}
+{% endblock %}
 {% block nto_content %}
 <div class="container py-4" style="max-width: 850px">
-  <a href="{% url 'nto_travel:landing' %}">← Сезоны НТО</a>
+  <a class="btn btn-outline-secondary" href="{% url 'nto_travel:landing' %}">← Сезоны НТО</a>
   <h1 class="h3 mt-3">{{ campaign.name }}</h1>
   <p class="text-muted">{{ application.get_status_display }}{% if application.clarification_due_at %} · ответ до {{ application.clarification_due_at|date:"d.m.Y H:i" }}{% endif %}</p>
   {% if application.status == 'clarification' and application.public_comment %}
@@ -21,24 +26,50 @@
     {% for field in form.visible_fields %}
       <div class="mb-3">
         <label class="form-label d-block" for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
+        {% if field.name == 'ticket_cost' and editable %}
+          <div class="input-group">
+            <button class="btn btn-outline-secondary" type="button" data-ticket-delta="-500" aria-label="Уменьшить стоимость на 500 рублей">−500</button>
+            {{ field }}
+            <button class="btn btn-outline-secondary" type="button" data-ticket-delta="500" aria-label="Увеличить стоимость на 500 рублей">+500</button>
+          </div>
+        {% else %}{{ field }}{% endif %}
+        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
         {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
       </div>
     {% endfor %}
     {% if step == 'personal' %}
-      <div class="mb-3"><label class="form-label">Email</label><input class="form-control" value="{{ user.email }}" disabled><div class="form-text">Адрес берётся из подтверждённого аккаунта.</div></div>
+      <div class="mb-3"><label class="form-label">Email</label><input class="form-control" value="{{ user.email }}" disabled></div>
       <h2 class="h5 mt-4">Профили НТО по приоритету</h2>
-      <p class="text-muted">Отметь профили, в финал которых вышел(вышла), и укажи приоритеты подряд с 1. Город поездки берётся из первого профиля.</p>
+      <p class="text-muted">Добавь профили, по которым участвуешь в финале, и расставь их по приоритету.</p>
       {% for error in ranking.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
-      {% for profile, choice_field, rank_field in ranking.profile_fields %}
-      <div class="row align-items-center border rounded p-2 mb-2">
-        <div class="col-md-9">{{ choice_field }} <label for="{{ choice_field.id_for_label }}">{{ profile.name }} — {{ profile.final_city }}</label></div>
-        <div class="col-md-3">{{ rank_field }}{% for error in rank_field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>
-      </div>
-      {% empty %}<div class="alert alert-warning">Профили пока не опубликованы.</div>{% endfor %}
+      {% for error in ranking.profile_order.errors %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endfor %}
+      <section id="nto-profile-picker" data-editable="{{ editable|yesno:'true,false' }}" class="mb-4">
+        {{ ranking.profile_order }}
+        {{ ranking.picker_data|json_script:"nto-profile-data" }}
+        {% if editable %}
+          <label class="form-label" for="nto-profile-search">Найти профиль</label>
+          <input type="search" id="nto-profile-search" class="form-control" placeholder="Название профиля или город" aria-controls="nto-profile-results" autocomplete="off">
+          <div id="nto-profile-results" class="list-group mt-2 mb-4" aria-label="Доступные профили"></div>
+          <noscript><p class="text-muted">Для добавления и изменения порядка профилей включите JavaScript.</p></noscript>
+        {% endif %}
+        <h3 class="h6">Выбранные профили</h3>
+        <ol id="nto-profile-selected" class="list-unstyled">
+          {% for profile in ranking.selected_profile_rows %}<li class="border rounded p-3 mb-2">{{ forloop.counter }}. {{ profile.name }} — {{ profile.final_city }}</li>{% empty %}<li class="text-muted">Профили пока не выбраны.</li>{% endfor %}
+        </ol>
+        <p class="mb-0">Город поездки: <strong id="nto-trip-city" aria-live="polite">{% with first=ranking.selected_profile_rows|first %}{{ first.final_city|default:'—' }}{% endwith %}</strong></p>
+        <p class="text-muted small mt-1 mb-0" id="nto-profile-multiple-cities" hidden>Заявка относится к поездке в город первого профиля.</p>
+        <div id="nto-profile-announcement" class="visually-hidden" role="status" aria-live="polite"></div>
+      </section>
     {% endif %}
     {% if editable %}<button class="btn btn-primary" type="submit">Сохранить и продолжить</button>{% endif %}
     <a class="btn btn-outline-secondary" href="{% url 'nto_travel:review' campaign.slug %}">Сводка заявки</a>
   </form>
 </div>
+{% endblock %}
+{% block extra_js %}
+  {{ block.super }}
+  <script src="{% static 'nto_travel/exclusive_choices.js' %}" defer></script>
+  <script src="{% static 'nto_travel/parent_contact.js' %}" defer></script>
+  {% if step == 'personal' %}<script src="{% static 'nto_travel/profile_picker.js' %}" defer></script>{% endif %}
+  {% if step == 'finance' %}<script src="{% static 'nto_travel/finance.js' %}" defer></script>{% endif %}
 {% endblock %}
