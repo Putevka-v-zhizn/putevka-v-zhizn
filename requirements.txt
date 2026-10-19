@@ -1,4 +1,5 @@
-Django>=4.2
+# Django 6 removed APIs used by the existing models and historical migrations.
+Django>=4.2,<6.0
 psycopg2-binary
 python-dotenv
 gunicorn
