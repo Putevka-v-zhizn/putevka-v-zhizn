@@ -16,6 +16,7 @@ on:
           - stop
           - seed-test-users
           - seed-nto-demo
+          - diagnose
       accounts_json:
         description: "QA accounts with username, program and password_hash; never plaintext passwords"
         required: false
@@ -26,7 +27,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: qa-server-deploy
+  group: qa-${{ github.event.inputs.action == 'diagnose' && 'diagnostics' || 'server-deploy' }}
   cancel-in-progress: true
 
 env:
@@ -222,7 +223,7 @@ jobs:
           EOF
 
   seed-test-users:
-    if: github.event_name == 'workflow_dispatch' && (github.event.inputs.action == 'seed-test-users' || github.event.inputs.action == 'seed-nto-demo')
+    if: github.event_name == 'workflow_dispatch' && (github.event.inputs.action == 'seed-test-users' || github.event.inputs.action == 'seed-nto-demo' || github.event.inputs.action == 'diagnose')
     runs-on: ubuntu-latest
     environment: qa
     steps:
@@ -246,7 +247,12 @@ jobs:
           QA_ACTION: ${{ inputs.action }}
         run: |
           python - <<'PY'
-          import json, os, pathlib, shlex, subprocess
+          import json, os, pathlib, shlex, subprocess, sys
+          connection = ['ssh', '-i', os.path.expanduser('~/.ssh/qa_deploy_key'), os.environ['DEPLOY_USER'] + '@' + os.environ['DEPLOY_HOST']]
+          directory = 'cd ' + shlex.quote(os.environ['DEPLOY_PATH'])
+          if os.environ['QA_ACTION'] == 'diagnose':
+              subprocess.run(connection + [directory + ' && docker compose --env-file .env -f docker-compose.qa.yml ps && docker compose --env-file .env -f docker-compose.qa.yml logs --tail=80 web'], check=True)
+              sys.exit(0)
           if os.environ['QA_ACTION'] == 'seed-nto-demo':
               script = 'SEED_QA_NTO = True\n' + pathlib.Path('deploy/qa/create_nto_demo.py').read_text()
           else:
