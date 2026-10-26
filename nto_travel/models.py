@@ -179,6 +179,33 @@ class NtoApplication(models.Model):
         return f"{self.campaign}: {self.user}"
 
 
+class NtoApplicationReview(models.Model):
+    application = models.OneToOneField(NtoApplication, on_delete=models.CASCADE, related_name="review")
+    criticality = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
+    criticality_reason = models.TextField(max_length=3000)
+    motivation = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
+    motivation_reason = models.TextField(max_length=3000)
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="nto_reviews")
+    updated_at = models.DateTimeField(auto_now=True)
+    version = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(check=Q(criticality__gte=1, criticality__lte=5), name="nto_review_criticality_range"),
+            models.CheckConstraint(check=Q(motivation__gte=1, motivation__lte=5), name="nto_review_motivation_range"),
+        ]
+
+
+class NtoApplicationRead(models.Model):
+    application = models.ForeignKey(NtoApplication, on_delete=models.CASCADE, related_name="read_marks")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="nto_read_marks")
+    read_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["application", "user"], name="nto_read_unique_user")]
+        ordering = ["read_at", "pk"]
+
+
 class NtoApplicationProfile(models.Model):
     application = models.ForeignKey(NtoApplication, on_delete=models.CASCADE, related_name="ranked_profiles")
     profile = models.ForeignKey(NtoProfile, on_delete=models.PROTECT)

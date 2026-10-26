@@ -5,6 +5,34 @@
   <a class="btn btn-outline-secondary" href="{% url 'nto_staff:queue' %}">← Очередь НТО</a>
   <h1 class="h3 mt-3">Заявка №{{ application.pk }} · {{ application.last_name }} {{ application.first_name }}</h1>
   <p>Статус: {{ application.get_status_display }} · {{ application.campaign.name }}</p>
+  <section class="border rounded p-3 mb-3" aria-label="Прочтение заявки">
+    <h2 class="h5">Прочитали</h2>
+    <ul>{% for mark in read_marks %}<li>{{ mark.user.get_full_name|default:mark.user.username }} · {{ mark.read_at|date:"d.m.Y H:i" }}</li>{% empty %}<li>Пока никто</li>{% endfor %}</ul>
+    {% if perms.nto_travel.review_nto_application %}
+      {% if read_by_me %}<p class="text-muted mb-0">Вы уже отметили прочтение.</p>{% else %}<form method="post" action="{% url 'nto_staff:mark_read' application.campaign.slug application.pk %}">{% csrf_token %}<button class="btn btn-outline-primary" type="submit">Прочитано мной</button></form>{% endif %}
+    {% endif %}
+  </section>
+  <section class="border rounded p-3 mb-3" style="max-width: 760px" aria-label="Заключение проверяющего">
+    <h2 class="h5">Заключение проверяющего</h2>
+    <p class="small text-muted">Одно общее заключение для всех проверяющих. Шкалы: 1 — низкая, 5 — высокая. Заключение не определяет решение автоматически.</p>
+    {% if review %}<p class="small">Последнее изменение: {{ review.author.get_full_name|default:review.author.username|default:"Система" }} · {{ review.updated_at|date:"d.m.Y H:i" }}</p>{% endif %}
+    {% if application.status == 'draft' %}
+      <p class="text-muted">Заключение доступно после отправки заявки участником.</p>
+    {% elif perms.nto_travel.review_nto_application %}
+      <form method="post" action="{% url 'nto_staff:save_review' application.campaign.slug application.pk %}">
+        {% csrf_token %}{{ review_form.version }}
+        {% for error in review_form.non_field_errors %}<div class="alert alert-warning" role="alert">{{ error }}</div>{% endfor %}
+        {{ review_form.version.errors }}
+        {% for field in review_form.visible_fields %}<div class="mb-3"><label class="form-label d-block" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}</div>{% endfor %}
+        <button class="btn btn-primary" type="submit">Сохранить заключение</button>
+      </form>
+    {% elif review %}
+      <p>Критичность поддержки: <strong>{{ review.criticality }}</strong></p>
+      <p style="white-space: pre-wrap; overflow-wrap: anywhere">{{ review.criticality_reason }}</p>
+      <p>Мотивация: <strong>{{ review.motivation }}</strong></p>
+      <p style="white-space: pre-wrap; overflow-wrap: anywhere">{{ review.motivation_reason }}</p>
+    {% else %}<p>Не оценено.</p>{% endif %}
+  </section>
   {% if perms.nto_travel.manage_nto_campaign %}<a class="btn btn-outline-primary mb-3" href="{% url 'nto_staff:edit' application.campaign.slug application.pk %}">Редактировать анкету</a>{% endif %}
   <h2 class="h5">Профили</h2><ol>{% for row in ranked_profiles %}<li>{{ row.name_snapshot|default:row.profile.name }} — {{ row.city_snapshot|default:row.profile.final_city }}</li>{% endfor %}</ol>
   {% include "nto_travel/_answers.html" %}

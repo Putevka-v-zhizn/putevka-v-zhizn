@@ -262,6 +262,14 @@ class MotivationForm(DraftModelForm):
         return data
 
 
+class ReviewForm(forms.Form):
+    version = forms.IntegerField(min_value=0, widget=forms.HiddenInput)
+    criticality = forms.TypedChoiceField(label="Критичность поддержки", coerce=int, choices=[("", "— Выберите —")] + [(value, f"{value} — низкая" if value == 1 else f"{value} — высокая" if value == 5 else str(value)) for value in range(1, 6)], widget=forms.Select(attrs={"class": "form-select"}))
+    criticality_reason = forms.CharField(label="Обоснование критичности", max_length=3000, widget=forms.Textarea(attrs={"class": "form-control", "rows": 3}))
+    motivation = forms.TypedChoiceField(label="Мотивация", coerce=int, choices=criticality.choices, widget=forms.Select(attrs={"class": "form-select"}))
+    motivation_reason = forms.CharField(label="Обоснование мотивации", max_length=3000, widget=forms.Textarea(attrs={"class": "form-control", "rows": 3}))
+
+
 class ClarificationForm(forms.Form):
     comment = forms.CharField(label="Что нужно уточнить?", widget=forms.Textarea(attrs={"class": "form-control", "rows": 4}))
     due_at = forms.SplitDateTimeField(label="Срок ответа", widget=forms.SplitDateTimeWidget(date_attrs={"type": "date", "class": "form-control", "aria-label": "Дата срока уточнения"}, time_attrs={"type": "time", "class": "form-control", "aria-label": "Время срока уточнения"}))

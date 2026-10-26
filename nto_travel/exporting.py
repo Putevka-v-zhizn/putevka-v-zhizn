@@ -10,6 +10,10 @@ from .models import NtoApplication
 from .presentation import LABELS, answer_rows
 
 
+REVIEW_COLUMNS = [
+    ("review_criticality", "Критичность поддержки"), ("review_motivation", "Мотивация"),
+    ("review_author", "Автор заключения"), ("readers", "Прочитали"),
+]
 REGISTRY = [
     ("pk", "Номер заявки"), ("full_name", "ФИО"), ("status", "Статус"),
     ("last_submitted_at", "Дата последней отправки"), ("region", "Субъект РФ"),
@@ -19,12 +23,16 @@ REGISTRY = [
     ("school_support", "Ответ школы"), ("parent_support", "Ответ родителей"),
     ("possible_payers", "Возможные источники оплаты"), ("clarification_due_at", "Срок уточнения"),
     ("decided_at", "Дата решения"),
-]
+] + REVIEW_COLUMNS
 ANSWERS = [
     ("pk", "Номер заявки"), ("full_name", "ФИО"), ("status", "Статус"),
     ("profiles", "Профили по приоритету"),
 ] + [(key, label) for key, label in LABELS if key not in {"finalist_declared", "parent_contact_declared"}] + [
     ("public_comment", "Комментарий участнику"),
+] + REVIEW_COLUMNS + [
+    ("review_criticality_reason", "Обоснование критичности"),
+    ("review_motivation_reason", "Обоснование мотивации"),
+    ("review_updated_at", "Заключение изменено"),
 ]
 
 
@@ -56,6 +64,16 @@ def application_workbook(applications):
             "profiles": "\n".join(f"{row.rank}. {name} ({city})" for row, name, city in zip(ranks, names, cities)),
             "final_city": cities[0] if cities else app.final_city,
             "public_comment": app.public_comment,
+        })
+        review = getattr(app, "review", None)
+        answers.update({
+            "review_criticality": review.criticality if review else None,
+            "review_motivation": review.motivation if review else None,
+            "review_author": (review.author.get_full_name().strip() or review.author.get_username()) if review and review.author else "",
+            "review_criticality_reason": review.criticality_reason if review else "",
+            "review_motivation_reason": review.motivation_reason if review else "",
+            "review_updated_at": timezone.localtime(review.updated_at).replace(tzinfo=None) if review else None,
+            "readers": "\n".join(mark.user.get_full_name().strip() or mark.user.get_username() for mark in app.read_marks.all()),
         })
         for key in ("last_submitted_at", "clarification_due_at", "decided_at"):
             value = getattr(app, key)
