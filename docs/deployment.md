@@ -48,7 +48,22 @@ Workflow:
 - `action=deploy` собирает image, пушит его в GHCR и поднимает сервис на QA-сервере;
 - `action=stop` останавливает QA-стек через `docker compose down --remove-orphans`.
 
-QA использует `docker-compose.qa.yml`. В этом compose-файле нет контейнера Postgres: приложение подключается к внешней базе через `DATABASE_URL`. HTTPS и редирект с HTTP обслуживает Caddy, который проксирует запросы в Django-сервис внутри Docker-сети.
+QA использует `docker-compose.qa.yml`. В этом compose-файле нет контейнера Postgres: приложение подключается к внешней базе через `DATABASE_URL`. HTTPS и редирект с HTTP обслуживает Caddy. Запросы `/static/*` он обслуживает из собранной Django статики, остальные проксирует в Django-сервис внутри Docker-сети.
+
+`web` выполняет `collectstatic` в `/app/staticfiles`, связанный с папкой `./staticfiles` на сервере. Та же папка подключена к Caddy как `/srv/static` только для чтения. Правило `handle_path /static/*` убирает префикс `/static` перед поиском файла. Пользовательские загрузки из `media` через это правило не публикуются.
+
+При деплое сначала проверяется Caddyfile, затем запускается стек и перезапускается Caddy, чтобы он прочитал новую конфигурацию даже при неизменном образе. Финальная HTTPS-проверка `deploy/qa/check_http.py` проверяет `/admin/login/`, `/static/admin/css/base.css` и `/static/admin/js/core.js`: HTTP 200, правильный Content-Type и непустой ответ. Если проверка не проходит после повторных попыток, workflow завершается ошибкой.
+
+Если нужно применить только исправление раздачи статики к уже работающему QA, синхронизируй обновлённые `docker-compose.qa.yml` и `deploy/qa/Caddyfile`, затем в каталоге QA выполни:
+
+```bash
+docker compose --env-file .env -f docker-compose.qa.yml exec -T web python manage.py collectstatic --noinput
+docker compose --env-file .env -f docker-compose.qa.yml run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+docker compose --env-file .env -f docker-compose.qa.yml up -d --no-deps caddy
+docker compose --env-file .env -f docker-compose.qa.yml restart caddy
+```
+
+Публичную проверку можно запустить из локального репозитория: `python deploy/qa/check_http.py https://QA_DOMAIN --attempts 1`.
 
 Нужная конфигурация GitHub Environment `qa`:
 

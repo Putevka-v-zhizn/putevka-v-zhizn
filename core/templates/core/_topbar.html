@@ -7,6 +7,7 @@
         {% if user.is_authenticated %}
             <div class="collapse navbar-collapse" id="topnav">
                 <ul class="navbar-nav ms-auto align-items-center gap-4">
+                    {% include 'core/_program_switcher.html' %}
                     <!-- Уведомления -->
                     <li class="nav-item dropdown me-3 gap-4" hx-ignore="false">
                         <a class="nav-link position-relative dropdown-toggle d-flex align-items-center gap-2"
@@ -51,6 +52,11 @@
                             {% endif %}
                         </button>
 
+                        {% if not user.is_staff and not user.is_superuser %}
+                        <ul class="dropdown-menu" aria-labelledby="userMenu">
+                            <li><a class="dropdown-item" href="{% url 'programs' %}">Мои программы</a></li>
+                        </ul>
+                        {% endif %}
                         <form action="{% url 'logout' %}" method="post" class="m-0 p-0">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-sm btn-outline-danger">

@@ -1,0 +1,13 @@
+<ol class="list-unstyled mb-0">
+  {% for event in event_list %}
+    <li class="border rounded p-3 mb-2" style="overflow-wrap: anywhere">
+      <div class="d-flex flex-wrap justify-content-between gap-2">
+        <strong>{{ event.label }}</strong>
+        <time class="small text-muted" datetime="{{ event.created_at|date:'c' }}">{{ event.created_at|date:"d.m.Y H:i" }}</time>
+      </div>
+      <div class="small text-muted">{{ event.actor }}</div>
+      {% if event.transition %}<div class="small mt-1">{{ event.transition }}</div>{% endif %}
+      {% if event.comment %}<div class="mt-2" style="white-space: pre-wrap">{{ event.comment }}</div>{% endif %}
+    </li>
+  {% empty %}<li class="text-muted">Событий пока нет.</li>{% endfor %}
+</ol>

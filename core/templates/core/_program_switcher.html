@@ -1,0 +1,9 @@
+{% if both_programs %}
+<li class="nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="programSwitcher">Программа: {% if nto_entry_only %}НТО{% else %}Основная{% endif %}</button>
+  <ul class="dropdown-menu" aria-labelledby="programSwitcher">
+    <li><form method="post" action="{% url 'program_select' %}">{% csrf_token %}<input type="hidden" name="program" value="main"><button class="dropdown-item {% if current_program == 'main' %}active{% endif %}" type="submit">Основная программа фонда</button></form></li>
+    <li><form method="post" action="{% url 'program_select' %}">{% csrf_token %}<input type="hidden" name="program" value="nto"><button class="dropdown-item {% if current_program == 'nto' %}active{% endif %}" type="submit">Поддержка поездки на финал НТО</button></form></li>
+  </ul>
+</li>
+{% endif %}

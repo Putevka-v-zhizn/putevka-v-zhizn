@@ -1,0 +1,23 @@
+{% extends "core/base.html" %}
+{% block title %}Мои программы{% endblock %}
+{% block content %}
+<div class="container py-4" style="max-width: 1000px">
+  {% for message in messages %}<div class="alert alert-danger" role="alert">{{ message }}</div>{% endfor %}
+  <h1 class="h3">{% if preferences.active_program %}Мои программы{% else %}Выберите программу{% endif %}</h1>
+  <p>Вы можете участвовать в одной программе или подключить обе. Для всех программ используется один аккаунт.</p>
+  <div class="row g-4 mt-1">
+    <div class="col-md-6"><div class="card h-100"><div class="card-body d-flex flex-column">
+      <h2 class="h5">Основная программа фонда</h2>
+      <p>Участие в отборе в программу «Путёвка в жизнь»: анкета, тестирование и дальнейшие этапы.</p>
+      {% if preferences.main_enabled %}<p class="text-success">Подключена{% if preferences.active_program == 'main' %} · текущая программа{% endif %}</p>{% endif %}
+      <form class="mt-auto" method="post" action="{% url 'program_select' %}">{% csrf_token %}<input type="hidden" name="program" value="main"><button class="btn btn-primary" type="submit">{% if preferences.main_enabled %}Открыть основную программу{% elif preferences.active_program %}Подключить основную программу{% else %}Выбрать основную программу{% endif %}</button></form>
+    </div></div></div>
+    <div class="col-md-6"><div class="card h-100"><div class="card-body d-flex flex-column">
+      <h2 class="h5">Поддержка поездки на финал НТО</h2>
+      <p>Заявка на поддержку проезда для участников, вышедших в заключительный этап Национальной технологической олимпиады.</p>
+      {% if preferences.nto_enabled %}<p class="text-success">Подключена{% if preferences.active_program == 'nto' %} · текущая программа{% endif %}</p>{% endif %}
+      <form class="mt-auto" method="post" action="{% url 'program_select' %}">{% csrf_token %}<input type="hidden" name="program" value="nto"><button class="btn btn-primary" type="submit">{% if preferences.nto_enabled %}Открыть НТО{% elif preferences.active_program %}Подключить НТО{% else %}Выбрать НТО{% endif %}</button></form>
+    </div></div></div>
+  </div>
+</div>
+{% endblock %}

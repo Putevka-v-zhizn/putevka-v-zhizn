@@ -1,0 +1,13 @@
+{% extends "nto_travel/base.html" %}
+{% block title %}Моя заявка НТО{% endblock %}
+{% block nto_content %}
+<div class="container py-4">
+  <h1 class="h3">{{ application.campaign.name }}</h1>
+  <div class="alert alert-info">Статус: {{ application.get_status_display }}{% if application.clarification_due_at and editable %}. Ответ до {{ application.clarification_due_at|date:"d.m.Y H:i" }}{% endif %}</div>
+  {% if application.public_comment %}<div class="alert alert-secondary" style="white-space: pre-wrap">{{ application.public_comment }}</div>{% endif %}
+  {% if editable %}<a class="btn btn-primary mb-3" href="{% url 'nto_travel:apply_step' application.campaign.slug 'personal' %}">Продолжить заполнение</a>{% endif %}
+  <h2 class="h5">Выбранные профили</h2>
+  <ol>{% for row in ranked_profiles %}<li>{{ row.name_snapshot|default:row.profile.name }} — {{ row.city_snapshot|default:row.profile.final_city }}</li>{% endfor %}</ol>
+  {% include "nto_travel/_answers.html" %}
+</div>
+{% endblock %}

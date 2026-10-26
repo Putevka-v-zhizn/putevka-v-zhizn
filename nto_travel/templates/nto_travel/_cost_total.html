@@ -1,0 +1,3 @@
+{% load nto_display %}
+<p class="mb-1"><strong>{{ totals.total|rubles }}</strong> · Заявок: {{ totals.count }}</p>
+{% if totals.missing %}<p class="text-warning mb-2">Итог неполный: без указанной стоимости — {{ totals.missing }}.</p>{% endif %}
