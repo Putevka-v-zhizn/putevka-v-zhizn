@@ -251,7 +251,7 @@ jobs:
           connection = ['ssh', '-i', os.path.expanduser('~/.ssh/qa_deploy_key'), os.environ['DEPLOY_USER'] + '@' + os.environ['DEPLOY_HOST']]
           directory = 'cd ' + shlex.quote(os.environ['DEPLOY_PATH'])
           if os.environ['QA_ACTION'] == 'diagnose':
-              subprocess.run(connection + [directory + ' && docker compose --env-file .env -f docker-compose.qa.yml ps && docker compose --env-file .env -f docker-compose.qa.yml logs --tail=80 web'], check=True)
+              subprocess.run(connection + [directory + ' && df -h && docker system df && docker ps --format "{{.Names}} {{.Image}}" && docker compose --env-file .env -f docker-compose.qa.yml ps && docker compose --env-file .env -f docker-compose.qa.yml logs --tail=80 web'], check=True)
               sys.exit(0)
           if os.environ['QA_ACTION'] == 'seed-nto-demo':
               script = 'SEED_QA_NTO = True\n' + pathlib.Path('deploy/qa/create_nto_demo.py').read_text()
