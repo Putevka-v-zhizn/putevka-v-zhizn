@@ -511,8 +511,8 @@ class NtoTravelTests(TestCase):
         info = UserInfo.objects.create(user=self.user)
         self.client.force_login(self.user)
         response = self.client.get(reverse("index"))
-        self.assertContains(response, 'id="selectionMenu"')
-        self.assertContains(response, 'id="selectionDropdown"')
+        self.assertNotContains(response, 'id="selectionMenu"')
+        self.assertNotContains(response, 'id="selectionDropdown"')
         self.assertNotContains(response, 'href="' + reverse("nto_travel:landing") + '"')
         RegistrationPersonalData.objects.create(
             user=self.user, email=self.user.email, password=self.user.password,
@@ -523,7 +523,7 @@ class NtoTravelTests(TestCase):
         self.assertNotContains(response, 'href="' + reverse("nto_travel:landing") + '"')
         UserProgramPreferences.objects.create(user=self.user, nto_enabled=True, active_program='nto')
         response = self.client.get(reverse("index"))
-        self.assertContains(response, 'href="' + reverse("nto_travel:landing") + '"')
+        self.assertContains(response, 'Открыть НТО')
         for main_url in ("apply", "candidate_testing_list", "motivation_letter", "my_video_page", "preparation"):
             self.assertNotContains(response, 'href="' + reverse(main_url) + '"')
         self.assertNotContains(response, 'id="selectionMenu"')
@@ -534,7 +534,7 @@ class NtoTravelTests(TestCase):
         info.status = "FINAL STAGE"
         info.save(update_fields=["form_status", "status"])
         response = self.client.get(reverse("index"))
-        self.assertContains(response, 'href="' + reverse("nto_travel:landing") + '"')
+        self.assertContains(response, 'Открыть НТО')
         self.assertNotContains(response, 'href="' + reverse("family_income:page") + '"')
         self.assertNotContains(response, 'href="' + reverse("documents_dashboard") + '"')
 
@@ -548,7 +548,9 @@ class NtoTravelTests(TestCase):
         app.nto_goal = ""
         app.save(update_fields=["nto_goal"])
         response = self.client.post(reverse("nto_travel:submit", args=[self.campaign.slug]), {"accept_consent": "on"}, follow=True)
-        self.assertContains(response, "Цель участия в НТО: Обязательный ответ")
+        self.assertContains(response, "Проверь разделы: Мотивация")
+        step = self.client.get(reverse('nto_travel:apply_step', args=[self.campaign.slug, 'motivation']))
+        self.assertContains(step, 'aria-invalid="true"')
         self.assertContains(response, "Город финала")
         self.assertContains(response, "Томск")
         app.status = "clarification"

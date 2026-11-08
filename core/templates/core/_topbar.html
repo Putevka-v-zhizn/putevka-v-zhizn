@@ -5,6 +5,7 @@
             <span class="navbar-toggler-icon"></span>
         </button>
         {% if user.is_authenticated %}
+            <a class="nav-link" href="{% url 'programs' %}">Программы</a>
             <div class="collapse navbar-collapse" id="topnav">
                 <ul class="navbar-nav ms-auto align-items-center gap-4">
                     {% include 'core/_program_switcher.html' %}

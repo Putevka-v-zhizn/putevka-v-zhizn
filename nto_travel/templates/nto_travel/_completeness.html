@@ -1,0 +1,3 @@
+{% if editable %}<div class="mb-3" aria-label="Заполнение разделов">
+{% for section in sections %}<a class="badge {% if section.errors %}text-bg-warning{% else %}text-bg-success{% endif %} me-2 mb-2" href="{% url 'nto_travel:apply_step' application.campaign.slug section.key %}">{{ section.label }}: {% if section.errors %}нужно заполнить{% else %}заполнен{% endif %}</a>{% endfor %}
+</div>{% endif %}

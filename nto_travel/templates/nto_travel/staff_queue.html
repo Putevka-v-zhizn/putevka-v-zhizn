@@ -10,13 +10,13 @@
     <div class="col-md-2"><select name="status" class="form-select" aria-label="Статус"><option value="">Все статусы</option>{% for value,label in status_choices %}<option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
     <div class="col-md-2"><input class="form-control" name="q" value="{{ request.GET.q }}" placeholder="ФИО или email"></div>
     <div class="col-md-2"><input class="form-control" name="region" value="{{ request.GET.region }}" placeholder="Регион"></div>
-    <div class="col-md-2"><input class="form-control" name="city" value="{{ request.GET.city }}" placeholder="Город финала"></div>
-    <div class="col-md-2"><select name="profile" class="form-select"><option value="">Все первые профили</option>{% for item in profiles %}<option value="{{ item.external_code }}" {% if request.GET.profile == item.external_code %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select></div>
+    <div class="col-md-2"><select class="form-select" name="city" aria-label="Город финала"><option value="">Все города финала</option>{% for city in cities %}<option {% if request.GET.city == city %}selected{% endif %}>{{ city }}</option>{% endfor %}</select></div>
+    <div class="col-md-3"><label>Профили (можно несколько)<select name="profile" multiple class="form-select">{% for item in profiles %}<option value="{{ item.external_code }}" {% if item.external_code in selected_profiles %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select></label></div>
+    <div class="col-md-2"><select name="priority" class="form-select" aria-label="Приоритет профиля"><option value="">Любой приоритет</option><option value="first" {% if request.GET.priority == 'first' %}selected{% endif %}>Только первый</option></select></div>
     <div class="col-md-2"><button class="btn btn-primary">Найти</button></div>
   </form>
   {% if campaign %}
     {% if perms.nto_travel.export_nto_application %}<p class="small text-muted">XLSX содержит реестр и полные ответы. Для сортировки и фильтрации используйте стрелки в заголовках столбцов Excel.</p>{% endif %}
-    {% if perms.nto_travel.manage_nto_campaign %}<a class="btn btn-outline-secondary mb-3" href="{% url 'nto_staff:profile_export' campaign.slug %}">Скачать профили XLSX</a>{% endif %}
     {% if perms.nto_travel.export_nto_application %}<a class="btn btn-outline-secondary mb-3" href="{% url 'nto_staff:export' campaign.slug %}?{{ request.GET.urlencode }}">Выгрузить XLSX</a>{% endif %}
     {% if perms.nto_travel.manage_nto_campaign %}<a class="btn btn-outline-secondary mb-3" href="{% url 'nto_staff:profile_import' campaign.slug %}">Импорт профилей</a>{% endif %}
   {% endif %}
@@ -28,7 +28,7 @@
           <a class="btn btn-outline-primary m-2 text-start" href="{% url 'nto_staff:detail' app.campaign.slug app.pk %}">{% if app.last_name or app.first_name or app.middle_name %}{{ app.last_name }} {{ app.first_name }} {{ app.middle_name }}{% else %}Заявка №{{ app.pk }}{% endif %}</a>
         </td>
         <td class="align-middle">{{ app.region }}</td>
-        <td class="align-middle">{{ app.final_city }}</td>
+        <td class="align-middle">{{ app.final_city }}{% for row in app.ranked_profiles.all %}<div class="small">{{ row.rank }}. {{ row.name_snapshot|default:row.profile.name }}</div>{% endfor %}</td>
         <td class="align-middle">{{ app.get_status_display }}</td>
         <td class="align-middle">{{ app.last_submitted_at|date:"d.m.Y H:i" }}</td>
         <td class="align-middle text-nowrap">{{ app.ticket_cost|rubles }}</td>

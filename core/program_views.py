@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.shortcuts import redirect, render
@@ -17,6 +18,7 @@ def programs(request):
         return redirect('index')
     return render(request, 'core/programs.html', {
         'preferences': get_program_preferences(request.user),
+        'application_submissions_open': settings.APPLICATION_SUBMISSIONS_OPEN,
         'suppress_analytics': True,
     })
 

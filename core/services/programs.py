@@ -1,4 +1,5 @@
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
 
@@ -37,6 +38,8 @@ def select_program(user, program):
     preferences, _ = UserProgramPreferences.objects.get_or_create(
         user=user, defaults=legacy_program_defaults(user),
     )
+    if program == 'main' and not settings.APPLICATION_SUBMISSIONS_OPEN and not preferences.main_enabled:
+        raise ValidationError('Отбор сейчас закрыт. Подпишитесь на уведомление о старте отбора.')
     setattr(preferences, f"{program}_enabled", True)
     preferences.active_program = program
     preferences.save(update_fields=[f"{program}_enabled", "active_program"])

@@ -33,9 +33,13 @@ def _filtered(campaign, params):
     if params.get("region"):
         qs = qs.filter(region__icontains=params["region"].strip()[:100])
     if params.get("city"):
-        qs = qs.filter(final_city__icontains=params["city"].strip()[:100])
+        qs = qs.filter(final_city=params["city"].strip()[:255])
     if params.get("profile"):
-        qs = qs.filter(ranked_profiles__rank=1, ranked_profiles__profile__external_code=params["profile"][:100])
+        codes = params.getlist('profile') if hasattr(params, 'getlist') else [params['profile']]
+        conditions = {'ranked_profiles__profile__external_code__in': codes}
+        if params.get('priority') == 'first':
+            conditions['ranked_profiles__rank'] = 1
+        qs = qs.filter(**conditions)
     if params.get("q"):
         for term in params["q"].strip()[:100].split():
             qs = qs.filter(
@@ -74,6 +78,8 @@ def queue(request):
     return render(request, "nto_travel/staff_queue.html", {
         "campaigns": campaigns, "campaign": campaign, "applications": applications,
         "profiles": NtoProfile.objects.filter(campaign=campaign).order_by("name") if campaign else [],
+        "selected_profiles": request.GET.getlist('profile'),
+        "cities": sorted(set(NtoApplication.objects.filter(campaign=campaign).exclude(final_city='').values_list('final_city', flat=True)) | set(NtoProfile.objects.filter(campaign=campaign).exclude(final_city='').values_list('final_city', flat=True))),
         "suppress_analytics": True,
         "status_choices": NtoApplication.Status.choices, "sort_links": sort_links,
         "approved_totals": _approved_totals(NtoApplication.objects.filter(campaign=campaign)),

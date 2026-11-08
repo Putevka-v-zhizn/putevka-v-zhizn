@@ -10,3 +10,6 @@
         });
     }
 })();
+document.addEventListener('keydown', function (event) {
+  if (event.key === 'Enter' && !event.isComposing && ['ticket_cost', 'income_per_member'].includes(event.target.name)) event.preventDefault();
+});

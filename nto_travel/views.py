@@ -12,6 +12,7 @@ from .forms import FinanceForm, MotivationForm, PersonalForm, ProfileRankingForm
 from .models import NtoApplication, NtoCampaign
 from .presentation import LABELS, answer_rows
 from .services import create_application, save_ranked_profiles, submit_application
+from .completeness import incomplete_sections
 
 
 def landing(request):
@@ -65,6 +66,12 @@ def apply_step(request, slug, step):
         form = form_class(instance=app)
         ranking = ProfileRankingForm(campaign=campaign, application=app) if step == "personal" else None
     editable = _editable(app)
+    sections = incomplete_sections(app)
+    for name in next(row['errors'] for row in sections if row['key'] == step):
+        field_name = name + '_text' if name in {'universities', 'specializations', 'achievements'} else name
+        if field_name in form.fields:
+            form.fields[field_name].widget.attrs['aria-invalid'] = 'true'
+            form.fields[field_name].help_text = 'Нужно заполнить или исправить перед отправкой.'
     if not editable:
         for field in form.fields.values():
             field.disabled = True
@@ -74,6 +81,7 @@ def apply_step(request, slug, step):
     return render(request, "nto_travel/step.html", {
         "campaign": campaign, "application": app, "step": step, "form": form,
         "ranking": ranking, "editable": editable, "suppress_analytics": True,
+        "sections": sections,
     })
 
 
@@ -84,6 +92,7 @@ def review(request, slug):
     return render(request, "nto_travel/review.html", {
         "application": app, "ranked_profiles": app.ranked_profiles.select_related("profile"),
         "editable": _editable(app), "answer_rows": answer_rows(app), "suppress_analytics": True,
+        "sections": incomplete_sections(app),
     })
 
 
@@ -96,9 +105,8 @@ def submit(request, slug):
         submit_application(app.pk, request.user, consent_confirmed=request.POST.get("accept_consent") == "on")
     except ValidationError as exc:
         if hasattr(exc, "message_dict"):
-            for key, errors in exc.message_dict.items():
-                label = dict(LABELS).get(key, "Профили НТО" if key == "profiles" else "Заявка")
-                messages.error(request, f"{label}: {'; '.join(errors)}")
+            sections = [row['label'] for row in incomplete_sections(app) if row['errors']]
+            messages.error(request, ('Проверь разделы: ' + ', '.join(sections)) if sections else 'Проверь согласие и условия отправки заявки.')
         else:
             messages.error(request, "; ".join(exc.messages))
         return redirect("nto_travel:review", slug=slug)

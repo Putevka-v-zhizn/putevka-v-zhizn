@@ -21,6 +21,8 @@
   </nav>
   {% if not editable %}<div class="alert alert-warning">Сейчас заявка доступна только для просмотра.</div>{% endif %}
   <form method="post" novalidate>
+    {% include 'nto_travel/_completeness.html' %}
+    <style>[aria-invalid="true"] { border: 2px solid #b86e00; }</style>
     {% csrf_token %}
     {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
     {% for field in form.visible_fields %}

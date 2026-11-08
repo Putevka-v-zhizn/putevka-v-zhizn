@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from django.apps import apps
 from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -15,6 +15,7 @@ from nto_travel.models import NtoApplication, NtoApplicationProfile, NtoCampaign
 from scholar_form.models import UserInfo
 
 
+@override_settings(APPLICATION_SUBMISSIONS_OPEN=True)
 class ProgramSelectionTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user('programs@example.test', email='programs@example.test', password='ProgramTest2026!')
@@ -32,7 +33,7 @@ class ProgramSelectionTests(TestCase):
         return campaign, profile
 
     def test_unchosen_account_always_returns_to_choice(self):
-        for url in ('index', 'apply', 'finish_registration'):
+        for url in ('apply', 'finish_registration'):
             self.assertRedirects(self.client.get(reverse(url)), reverse('programs'))
         page = self.client.get(reverse('programs'))
         self.assertContains(page, 'Выберите программу')
@@ -40,14 +41,14 @@ class ProgramSelectionTests(TestCase):
         self.assertNotContains(page, 'id="selectionMenu"')
         self.client.logout()
         self.client.login(username=self.user.username, password='ProgramTest2026!')
-        self.assertRedirects(self.client.get(reverse('index')), reverse('programs'))
+        self.assertContains(self.client.get(reverse('index')), 'Как это работает')
 
     def test_connect_both_switch_and_deep_links_without_data_loss(self):
         self.assertRedirects(self.client.post(reverse('program_select'), {'program':'main'}), reverse('apply'))
         self.info.first_name = 'Сохранённое имя'
         self.info.save(update_fields=['first_name'])
         page = self.client.get(reverse('index'))
-        self.assertContains(page, 'id="selectionMenu"')
+        self.assertNotContains(page, 'id="selectionMenu"')
         self.assertNotContains(page, 'id="programSwitcher"')
         self.assertNotContains(page, 'href="' + reverse('nto_travel:landing') + '"')
         self.assertRedirects(self.client.post(reverse('program_select'), {'program':'nto'}), reverse('nto_travel:landing'))
@@ -69,7 +70,32 @@ class ProgramSelectionTests(TestCase):
         self.info.refresh_from_db()
         self.assertEqual(self.info.first_name, 'Сохранённое имя')
         page = self.client.get(reverse('index'))
-        self.assertContains(page, 'id="selectionMenu"')
+        self.assertNotContains(page, 'id="selectionMenu"')
+
+    def test_guest_home(self):
+        self.client.logout()
+        page = self.client.get(reverse('index'))
+        for text in ('Как это работает', 'Поддержи таланты', 'Поддержка поездки на финал НТО', 'Зарегистрироваться', 'Войти'):
+            self.assertContains(page, text)
+
+    @override_settings(APPLICATION_SUBMISSIONS_OPEN=False)
+    def test_closed_program_and_subscription(self):
+        page = self.client.get(reverse('programs'))
+        self.assertContains(page, 'Узнать о старте отбора')
+        self.assertNotContains(page, 'name="program" value="main"')
+        self.client.post(reverse('program_select'), {'program': 'main'})
+        self.preferences.refresh_from_db()
+        self.assertFalse(self.preferences.main_enabled)
+        self.assertContains(self.client.get(reverse('announce')), self.user.email)
+        self.client.post(reverse('announce'), {'email': self.user.email})
+        from subscriber.models import EmailSubscriber
+        self.assertTrue(EmailSubscriber.objects.filter(email=self.user.email).exists())
+
+    def test_existing_member_keeps_closed_program_access(self):
+        self.client.post(reverse('program_select'), {'program': 'main'})
+        with override_settings(APPLICATION_SUBMISSIONS_OPEN=False):
+            self.assertRedirects(self.client.post(reverse('program_select'), {'program': 'main'}), reverse('apply'))
+            self.assertContains(self.client.get(reverse('apply')), 'Приём анкет завершён')
 
     def test_nto_only_has_no_main_flow_and_unconnected_routes_require_choice(self):
         self.client.post(reverse('program_select'), {'program':'nto'})

@@ -3,6 +3,7 @@
 {% block nto_content %}
 <div class="container py-4">
   <h1 class="h3">Проверь ответы перед отправкой</h1>
+  {% include 'nto_travel/_completeness.html' %}
   <p>Статус: {{ application.get_status_display }}</p>
   <h2 class="h5">Профили</h2>
   <ol>{% for row in ranked_profiles %}<li>{{ row.name_snapshot|default:row.profile.name }} — {{ row.city_snapshot|default:row.profile.final_city }}</li>{% empty %}<li>Не выбраны</li>{% endfor %}</ol>

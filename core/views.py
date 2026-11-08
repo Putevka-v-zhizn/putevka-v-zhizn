@@ -106,12 +106,10 @@ def feedback_view(request):
 
     return render(request, "feedback.html", {"form": form, "active": "feedback"})
 
-@login_required()
-@ensure_registration_gate('protected')
 def index(request):
-    if request.user.is_staff:
+    if request.user.is_authenticated and request.user.is_staff:
         return redirect('/staff/users')
-    return render(request, 'core/index.html')
+    return render(request, 'core/home.html', {'application_submissions_open': settings.APPLICATION_SUBMISSIONS_OPEN})
 
 
 def _registration_nto_slug(request):

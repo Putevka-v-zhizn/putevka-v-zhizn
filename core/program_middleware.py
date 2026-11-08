@@ -14,6 +14,8 @@ class ProgramSelectionMiddleware:
         user = request.user
         if not user.is_authenticated or user.is_staff or user.is_superuser:
             return None
+        if request.path == '/':
+            return None
         # Registration/authentication, staff and service endpoints retain their own gates.
         if request.path.startswith((
             "/register/", "/accounts/", "/programs/", "/admin/", "/staff/", "/internal/",

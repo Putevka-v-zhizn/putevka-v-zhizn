@@ -1,0 +1,11 @@
+{% extends 'core/base.html' %}
+{% block title %}Программы фонда «Путёвка в жизнь»{% endblock %}
+{% block content %}<div class="container py-4" style="max-width:1100px">
+<h1>Возможности для твоего будущего</h1>
+<p class="lead">Подай заявку на поддержку фонда «Путёвка в жизнь» и следи за её рассмотрением. Один аккаунт для всех программ.</p>
+{% if not user.is_authenticated %}<p><a class="btn btn-primary" href="{% url 'register_initial' %}">Зарегистрироваться</a> <a class="btn btn-outline-primary" href="{% url 'login' %}">Войти</a></p>{% endif %}
+<h2 class="h4 mt-4">Как это работает</h2>
+<ol><li>Выбери программу.</li><li>Зарегистрируйся или войди.</li><li>Заполни заявку.</li><li>Отслеживай статус в личном кабинете.</li></ol>
+<h2 class="h4 mt-4">Программы</h2>
+{% include 'core/_program_cards.html' with preferences=program_preferences %}
+</div>{% endblock %}

@@ -15,7 +15,7 @@ def nto_navigation(request):
     current = request_program(request, preferences)
     return {
         'nto_entry_only': current == 'nto',
-        'show_program_navigation': bool(current),
+        'show_program_navigation': bool(current) and request.path not in ('/', '/programs/'),
         'current_program': current,
         'both_programs': preferences.main_enabled and preferences.nto_enabled,
         'program_preferences': preferences,
