@@ -101,3 +101,25 @@ class AssessmentResultForm(forms.ModelForm):
         widgets = {
             "date": forms.DateInput(attrs={"type": "date"})
         }
+
+
+class PreparationMethodsForm(forms.Form):
+    not_started = forms.BooleanField(required=False, label="Не начал готовиться к этому предмету")
+    independently = forms.BooleanField(required=False, label="Готовлюсь самостоятельно")
+    with_tutor_or_school = forms.BooleanField(required=False, label="Готовлюсь с репетитором / в школе")
+
+    def clean(self):
+        data = super().clean()
+        if data.get("not_started") and (data.get("independently") or data.get("with_tutor_or_school")):
+            raise forms.ValidationError("«Не начал» нельзя сочетать с другими способами подготовки.")
+        return data
+
+
+class PreparationAddForm(forms.Form):
+    direction = forms.ChoiceField(label="Предмет или олимпиады")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["direction"].choices = [("olympiad", "Олимпиады")] + [
+            (str(subject.pk), subject.name) for subject in Subject.objects.all()
+        ]

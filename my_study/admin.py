@@ -18,9 +18,9 @@ class SchoolAdmin(admin.ModelAdmin):
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display = ("title", "school", "subject", "available_to_alternative")
-    list_editable = ("available_to_alternative",)
-    list_filter = ("available_to_alternative", "school", "subject")
+    list_display = ("title", "school", "subject", "available_to_alternative", "is_olympiad")
+    list_editable = ("available_to_alternative", "is_olympiad")
+    list_filter = ("available_to_alternative", "is_olympiad", "school", "subject")
     search_fields = ("title", "description")
 
 
