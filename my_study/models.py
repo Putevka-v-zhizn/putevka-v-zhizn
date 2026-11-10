@@ -148,6 +148,8 @@ class PreparationDirection(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        verbose_name = "Направление подготовки"
+        verbose_name_plural = "Направления подготовки"
         ordering = ["is_olympiad", "subject__name"]
         constraints = [
             models.UniqueConstraint(fields=["user", "subject"], name="unique_preparation_subject"),
@@ -155,6 +157,9 @@ class PreparationDirection(models.Model):
             models.CheckConstraint(check=(models.Q(is_olympiad=True, subject__isnull=True) | models.Q(is_olympiad=False, subject__isnull=False)), name="preparation_direction_kind"),
             models.CheckConstraint(check=(models.Q(not_started=False) | models.Q(independently=False, with_tutor_or_school=False)), name="preparation_methods_exclusive"),
         ]
+
+    def __str__(self):
+        return f"{self.user} — {self.title}"
 
     @property
     def title(self):

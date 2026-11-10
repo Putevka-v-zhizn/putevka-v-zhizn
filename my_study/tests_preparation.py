@@ -127,3 +127,59 @@ class PreparationTests(TestCase):
                 PreparationDirection.objects.create(**values)
         with self.assertRaises(IntegrityError), transaction.atomic():
             PreparationDirection.objects.filter(pk=direction.pk).update(not_started=True, independently=True)
+
+
+class PreparationAdminTests(TestCase):
+    setUpTestData = PreparationTests.__dict__["setUpTestData"]
+    direction = PreparationTests.direction
+    def setUp(self):
+        self.admin = get_user_model().objects.create_superuser(username="admin-preparation", password="test")
+        self.client.force_login(self.admin)
+
+    def test_admin_save_visible_to_child(self):
+        url = reverse("admin:my_study_preparationdirection_add")
+        response = self.client.post(url, {"user": self.user.pk, "subject": self.subject.pk,
+            "independently": "on", "with_tutor_or_school": "on", "_save": "Save"})
+        self.assertEqual(response.status_code, 302)
+        direction = PreparationDirection.objects.get(user=self.user)
+        self.assertTrue(direction.independently and direction.with_tutor_or_school)
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("study:schools"))
+        self.assertEqual(response.context["directions"][0].pk, direction.pk)
+        self.assertEqual(self.client.get(url).status_code, 302)
+
+    def test_admin_rejects_invalid_methods_and_kind(self):
+        from .admin import PreparationDirectionAdminForm
+        for values in (
+            {"subject": self.subject.pk, "is_olympiad": True},
+            {},
+            {"subject": self.subject.pk, "not_started": True, "independently": True},
+        ):
+            form = PreparationDirectionAdminForm(data={"user": self.user.pk, **values})
+            self.assertFalse(form.is_valid())
+        form = PreparationDirectionAdminForm(data={"user": self.user.pk, "is_olympiad": True})
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+        duplicate = PreparationDirectionAdminForm(data={"user": self.user.pk, "is_olympiad": True})
+        self.assertFalse(duplicate.is_valid())
+
+    def test_admin_assign_course_creates_direction_and_preserves_methods(self):
+        direction = self.direction()
+        direction.independently = True
+        direction.save()
+        url = reverse("admin:my_study_courseselection_add")
+        for course in (self.course, self.olymp):
+            response = self.client.post(url, {"user": self.user.pk, "course": course.pk, "motivation": "Назначен", "_save": "Save"})
+            self.assertEqual(response.status_code, 302)
+        self.assertEqual(PreparationDirection.objects.filter(user=self.user).count(), 2)
+        direction.refresh_from_db()
+        self.assertTrue(direction.independently)
+        response = self.client.post(reverse("admin:my_study_preparationdirection_delete", args=[direction.pk]), {"post": "yes"})
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(PreparationDirection.objects.filter(pk=direction.pk).exists())
+
+    def test_admin_search_by_child(self):
+        self.direction()
+        response = self.client.get(reverse("admin:my_study_preparationdirection_changelist"), {"q": self.user.username})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["cl"].result_count, 1)
