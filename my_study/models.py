@@ -35,7 +35,6 @@ class Course(models.Model):
     subject = models.ForeignKey(Subject, on_delete=models.PROTECT, related_name="courses")
     description = models.TextField(blank=True)
     link = models.URLField(blank=True)
-    is_olympiad = models.BooleanField("Олимпиадный", default=False)
     available_to_alternative = models.BooleanField(
         "Доступен альтернативному треку",
         default=False,
@@ -140,8 +139,7 @@ class ProgressTrackerFile(models.Model):
 
 class PreparationDirection(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="preparation_directions")
-    subject = models.ForeignKey(Subject, null=True, blank=True, on_delete=models.PROTECT)
-    is_olympiad = models.BooleanField(default=False)
+    subject = models.ForeignKey(Subject, on_delete=models.PROTECT)
     not_started = models.BooleanField(default=False)
     independently = models.BooleanField(default=False)
     with_tutor_or_school = models.BooleanField(default=False)
@@ -150,11 +148,9 @@ class PreparationDirection(models.Model):
     class Meta:
         verbose_name = "Направление подготовки"
         verbose_name_plural = "Направления подготовки"
-        ordering = ["is_olympiad", "subject__name"]
+        ordering = ["subject__name"]
         constraints = [
             models.UniqueConstraint(fields=["user", "subject"], name="unique_preparation_subject"),
-            models.UniqueConstraint(fields=["user"], condition=models.Q(is_olympiad=True), name="unique_preparation_olympiad"),
-            models.CheckConstraint(check=(models.Q(is_olympiad=True, subject__isnull=True) | models.Q(is_olympiad=False, subject__isnull=False)), name="preparation_direction_kind"),
             models.CheckConstraint(check=(models.Q(not_started=False) | models.Q(independently=False, with_tutor_or_school=False)), name="preparation_methods_exclusive"),
         ]
 
@@ -163,7 +159,7 @@ class PreparationDirection(models.Model):
 
     @property
     def title(self):
-        return "Олимпиады" if self.is_olympiad else self.subject.name
+        return self.subject.name
 
     @property
     def has_answer(self):

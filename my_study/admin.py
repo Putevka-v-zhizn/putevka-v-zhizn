@@ -19,9 +19,9 @@ class SchoolAdmin(admin.ModelAdmin):
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display = ("title", "school", "subject", "available_to_alternative", "is_olympiad")
-    list_editable = ("available_to_alternative", "is_olympiad")
-    list_filter = ("available_to_alternative", "is_olympiad", "school", "subject")
+    list_display = ("title", "school", "subject", "available_to_alternative")
+    list_editable = ("available_to_alternative",)
+    list_filter = ("available_to_alternative", "school", "subject")
     search_fields = ("title", "description")
 
 
@@ -35,10 +35,7 @@ class CourseSelectionAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
-        if not obj.course.is_olympiad:
-            PreparationDirection.objects.get_or_create(
-                user=obj.user, is_olympiad=False, subject_id=obj.course.subject_id,
-            )
+        PreparationDirection.objects.get_or_create(user=obj.user, subject_id=obj.course.subject_id)
 
 @admin.register(UniversityPriority)
 class UniversityPriorityAdmin(admin.ModelAdmin):
@@ -94,9 +91,6 @@ class PreparationDirectionAdmin(admin.ModelAdmin):
     list_select_related = ("user", "subject")
     actions = None
 
-    def get_queryset(self, request):
-        return super().get_queryset(request).filter(is_olympiad=False)
-
     @admin.display(description="Направление")
     def direction_name(self, obj):
         return obj.title
@@ -106,7 +100,5 @@ class PreparationDirectionAdmin(admin.ModelAdmin):
             return False
         if obj is None:
             return True
-        selections = CourseSelection.objects.filter(user_id=obj.user_id, course__is_olympiad=obj.is_olympiad)
-        if not obj.is_olympiad:
-            selections = selections.filter(course__subject_id=obj.subject_id)
+        selections = CourseSelection.objects.filter(user_id=obj.user_id, course__subject_id=obj.subject_id)
         return not selections.exists()

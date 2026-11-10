@@ -14,7 +14,7 @@ class PreparationTests(TestCase):
         cls.subject = Subject.objects.create(name="Математика", slug="math")
         cls.school = School.objects.create(name="Школа")
         cls.course = Course.objects.create(title="ЕГЭ", school=cls.school, subject=cls.subject)
-        cls.olymp = Course.objects.create(title="Олимпиадный курс", school=cls.school, subject=cls.subject, is_olympiad=True)
+        cls.second_course = Course.objects.create(title="Дополнительный курс", school=cls.school, subject=cls.subject)
 
     def setUp(self):
         self.client.force_login(self.user)
@@ -64,7 +64,6 @@ class PreparationTests(TestCase):
         self.select(self.course)
         another = Course.objects.create(title="Второй курс", school=self.school, subject=self.subject)
         self.select(another)
-        self.assertEqual(self.select(self.olymp).status_code, 404)
         response = self.client.get(reverse("study:schools"))
         rows = list(response.context["directions"])
         self.assertEqual([len(row.selections) for row in rows], [2])
@@ -77,7 +76,7 @@ class PreparationTests(TestCase):
 
     def test_legacy_selections_backfilled_without_changing_answers(self):
         CourseSelection.objects.create(user=self.user, course=self.course)
-        CourseSelection.objects.create(user=self.user, course=self.olymp)
+        CourseSelection.objects.create(user=self.user, course=self.second_course)
         for _ in range(2):
             self.client.get(reverse("study:schools"))
         self.assertEqual(PreparationDirection.objects.count(), 1)
@@ -96,7 +95,7 @@ class PreparationTests(TestCase):
         self.assertEqual(self.client.get(reverse("study:add_preparation")).status_code, 405)
         csrf_client = Client(enforce_csrf_checks=True)
         csrf_client.force_login(self.user)
-        self.assertEqual(csrf_client.post(reverse("study:add_preparation"), {"direction": "olympiad"}).status_code, 403)
+        self.assertEqual(csrf_client.post(reverse("study:add_preparation"), {"direction": str(self.subject.pk)}).status_code, 403)
 
     def test_track_access_and_hidden_courses_still_prevent_deletion(self):
         direction = self.direction()
@@ -120,7 +119,6 @@ class PreparationTests(TestCase):
         invalid = [
             dict(user=self.user, subject=self.subject),
             dict(user=self.user),
-            dict(user=self.user, subject=self.subject, is_olympiad=True),
         ]
         for values in invalid:
             with self.assertRaises(IntegrityError), transaction.atomic():
@@ -167,7 +165,7 @@ class PreparationAdminTests(TestCase):
         direction.independently = True
         direction.save()
         url = reverse("admin:my_study_courseselection_add")
-        for course in (self.course, self.olymp):
+        for course in (self.course, self.second_course):
             response = self.client.post(url, {"user": self.user.pk, "course": course.pk, "motivation": "Назначен", "_save": "Save"})
             self.assertEqual(response.status_code, 302)
         self.assertEqual(PreparationDirection.objects.filter(user=self.user).count(), 1)
@@ -182,20 +180,3 @@ class PreparationAdminTests(TestCase):
         response = self.client.get(reverse("admin:my_study_preparationdirection_changelist"), {"q": self.user.username})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["cl"].result_count, 1)
-
-
-class EgeOnlyTests(TestCase):
-    setUpTestData = PreparationTests.__dict__["setUpTestData"]
-    setUp = PreparationTests.setUp
-    def test_olympiads_hidden_and_old_data_preserved(self):
-        archived = PreparationDirection.objects.create(user=self.user, is_olympiad=True, independently=True)
-        CourseSelection.objects.create(user=self.user, course=self.olymp)
-        response = self.client.get(reverse("study:schools"))
-        self.assertNotContains(response, "Олимпиады")
-        self.assertNotContains(response, self.olymp.title)
-        self.client.post(reverse("study:add_preparation"), {"direction": "olympiad"})
-        for action in ("update_preparation", "delete_preparation"):
-            self.assertEqual(self.client.post(reverse(f"study:{action}", args=[archived.pk])).status_code, 404)
-        archived.refresh_from_db()
-        self.assertTrue(archived.independently)
-        self.assertEqual(CourseSelection.objects.count(), 1)
