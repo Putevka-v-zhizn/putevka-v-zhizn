@@ -112,7 +112,7 @@ def select_course(request, course_id):
                 selection.need_tutor = form.cleaned_data["need_tutor"]
                 selection.save()
             ensure_course_direction(request.user, course)
-            messages.success(request, "Ваш выбор сохранён.")
+            messages.success(request, "Твой выбор сохранён.")
             return redirect("study:schools")
     else:
         initial = {}
@@ -176,10 +176,10 @@ def universities(request):
             except IntegrityError:
                 messages.warning(
                     request,
-                    "Такой приоритет или направление уже заняты. Выберите другие значения."
+                    "Такой приоритет или направление уже заняты. Выбери другие значения."
                 )
         else:
-            messages.warning(request, "Исправьте ошибки в форме.")
+            messages.warning(request, "Исправь ошибки в форме.")
     else:
         form = UniversityPriorityForm(user=request.user)
 
@@ -243,7 +243,7 @@ def add_preparation(request):
         )
         messages.success(request, "Направление подготовки добавлено.")
     else:
-        messages.error(request, "Выберите предмет из списка или олимпиады.")
+        messages.error(request, "Выбери предмет из списка или олимпиады.")
     return redirect("study:schools")
 
 
@@ -274,7 +274,7 @@ def delete_preparation(request, pk):
     if not direction.is_olympiad:
         selections = selections.filter(course__subject_id=direction.subject_id)
     if selections.exists():
-        messages.error(request, "Сначала удалите выбранные курсы этого направления. Если курс недоступен, обратитесь к администратору.")
+        messages.error(request, "Сначала удали выбранные курсы этого направления. Если курс недоступен, обратись к администратору.")
     else:
         direction.delete()
         messages.success(request, "Направление подготовки удалено.")

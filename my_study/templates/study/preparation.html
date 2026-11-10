@@ -19,7 +19,7 @@
           {% for selection in direction.selections %}
             <div class="mb-2"><a href="{% url 'study:select_course' selection.course_id %}">{{ selection.course.title }}</a><div class="small text-muted">{{ selection.course.school.name }}</div></div>
           {% empty %}<p class="text-muted">Нет выбранных курсов</p>{% endfor %}
-          {% if direction.has_courses %}<p class="small text-muted">Чтобы удалить направление, сначала удалите его выбранные курсы. Если курс недоступен, обратитесь к администратору.</p>{% endif %}
+          {% if direction.has_courses %}<p class="small text-muted">Чтобы удалить направление, сначала удали его выбранные курсы. Если курс недоступен, обратись к администратору.</p>{% endif %}
         </div>
         <div class="col-lg-7">
           {% if not direction.has_answer %}<p class="text-muted">Способ подготовки не указан</p>{% endif %}

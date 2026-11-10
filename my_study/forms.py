@@ -17,7 +17,7 @@ class CourseSelectionForm(forms.ModelForm):
         model = CourseSelection
         fields = ["motivation", "need_tutor"]
         widgets = {
-            "motivation": forms.Textarea(attrs={"rows": 6, "placeholder": "Почему вы выбрали этот курс?"}),
+            "motivation": forms.Textarea(attrs={"rows": 6, "placeholder": "Почему ты выбрал этот курс?"}),
             'need_tutor': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
@@ -43,7 +43,7 @@ class UniversityPriorityForm(forms.ModelForm):
         ]
         widgets = {
             "priority": forms.Select(choices=[(i, str(i)) for i in range(1, 6)]),
-            "notes": forms.Textarea(attrs={"rows": 6, "placeholder": "Почему вы выбрали этот вуз?"}),
+            "notes": forms.Textarea(attrs={"rows": 6, "placeholder": "Почему ты выбрал этот вуз?"}),
             "university": forms.TextInput(attrs={"placeholder": "ВМиП (вуз милых и прикольных)"}),
             "city": forms.TextInput(attrs={"placeholder": "поселок городского типа Шаранга"}),
             "specialty": forms.TextInput(attrs={"placeholder": "Программная инженерия"}),
@@ -88,7 +88,7 @@ class UniversityPriorityForm(forms.ModelForm):
             if exists_qs.exists():
                 self.add_error(
                     "specialty",
-                    "Это направление в этом вузе уже есть в вашем списке.",
+                    "Это направление в этом вузе уже есть в твоём списке.",
                 )
 
         return cleaned

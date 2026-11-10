@@ -70,7 +70,7 @@
 
 {% if selections %}
 <hr class="my-4">
-<h5 class="mb-3">{% if user.user_info.status == "SCHOLAR" %}Ваши выбранные курсы{% else %}Заявка на курсы{% endif %}</h5>
+<h5 class="mb-3">{% if user.user_info.status == "SCHOLAR" %}Твои выбранные курсы{% else %}Заявка на курсы{% endif %}</h5>
 <div class="list-group">
   {% for sel in selections %}
     <div class="list-group-item">

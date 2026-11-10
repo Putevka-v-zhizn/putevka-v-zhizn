@@ -52,7 +52,7 @@ class Course(models.Model):
 class CourseSelection(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="course_selections")
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="selections")
-    motivation = models.TextField(help_text="Почему вы выбрали этот курс/направление?")
+    motivation = models.TextField(help_text="Почему ты выбрал этот курс/направление?")
     need_tutor = models.BooleanField(default=False, help_text="Нужен куратор")
     created_at = models.DateTimeField(auto_now_add=True)
 
