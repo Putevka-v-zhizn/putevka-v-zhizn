@@ -35,10 +35,10 @@ class CourseSelectionAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
-        PreparationDirection.objects.get_or_create(
-            user=obj.user, is_olympiad=obj.course.is_olympiad,
-            subject_id=None if obj.course.is_olympiad else obj.course.subject_id,
-        )
+        if not obj.course.is_olympiad:
+            PreparationDirection.objects.get_or_create(
+                user=obj.user, is_olympiad=False, subject_id=obj.course.subject_id,
+            )
 
 @admin.register(UniversityPriority)
 class UniversityPriorityAdmin(admin.ModelAdmin):
@@ -62,26 +62,22 @@ class ProgressTrackerFileAdmin(admin.ModelAdmin):
 class PreparationDirectionAdminForm(forms.ModelForm):
     class Meta:
         model = PreparationDirection
-        fields = "__all__"
+        fields = ("user", "subject", "not_started", "independently", "with_tutor_or_school")
         labels = {
             "user": "Ребёнок",
             "subject": "Предмет ЕГЭ",
-            "is_olympiad": "Олимпиады",
             "not_started": "Не начал готовиться",
             "independently": "Готовится самостоятельно",
             "with_tutor_or_school": "Готовится с репетитором / в школе",
         }
         help_texts = {
-            "subject": "Для олимпиад оставьте предмет пустым.",
             "not_started": "Нельзя сочетать с другими способами. Все пустые отметки означают, что способ не указан.",
         }
 
     def clean(self):
         data = super().clean()
-        if data.get("is_olympiad") and data.get("subject"):
-            self.add_error("subject", "Для направления «Олимпиады» предмет не указывается.")
-        elif not data.get("is_olympiad") and not data.get("subject"):
-            self.add_error("subject", "Выберите предмет ЕГЭ или отметьте «Олимпиады».")
+        if not data.get("subject"):
+            self.add_error("subject", "Выберите предмет ЕГЭ.")
         if data.get("not_started") and (data.get("independently") or data.get("with_tutor_or_school")):
             self.add_error("not_started", "«Не начал» нельзя сочетать с другими способами подготовки.")
         return data
@@ -91,12 +87,15 @@ class PreparationDirectionAdminForm(forms.ModelForm):
 class PreparationDirectionAdmin(admin.ModelAdmin):
     form = PreparationDirectionAdminForm
     list_display = ("user", "direction_name", "not_started", "independently", "with_tutor_or_school", "updated_at")
-    list_filter = ("is_olympiad", "subject", "not_started", "independently", "with_tutor_or_school")
+    list_filter = ("subject", "not_started", "independently", "with_tutor_or_school")
     search_fields = ("user__username", "user__first_name", "user__last_name", "user__email")
     raw_id_fields = ("user",)
     readonly_fields = ("updated_at",)
     list_select_related = ("user", "subject")
     actions = None
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(is_olympiad=False)
 
     @admin.display(description="Направление")
     def direction_name(self, obj):

@@ -1,9 +1,9 @@
 <section class="mb-4" aria-labelledby="preparation-heading">
-  <h4 id="preparation-heading">Моя подготовка</h4>
-  <p class="text-muted">Добавь предметы, которые сдаёшь, и отметь, как готовишься. Можно выбрать несколько способов. Выбранные курсы отображаются рядом независимо от отметок.</p>
+  <h4 id="preparation-heading">Моя подготовка к ЕГЭ</h4>
+  <p class="text-muted">Добавь предметы ЕГЭ, которые сдаёшь, и отметь, как готовишься. Можно выбрать несколько способов. Выбранные курсы отображаются рядом независимо от отметок.</p>
   <form method="post" action="{% url 'study:add_preparation' %}" class="row g-2 mb-3">
     {% csrf_token %}
-    <div class="col-md-8"><label for="id_direction" class="form-label">Предмет или олимпиады</label>
+    <div class="col-md-8"><label for="id_direction" class="form-label">Предмет ЕГЭ</label>
       <select name="direction" id="id_direction" class="form-select" required>
         {% for value, label in preparation_add_form.fields.direction.choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
       </select>
@@ -38,7 +38,7 @@
         </div>
       </div>
     </div></article>
-    {% empty %}<p class="text-muted">Добавь первый предмет или олимпиады, чтобы указать способы подготовки.</p>{% endfor %}
+    {% empty %}<p class="text-muted">Добавь первый предмет, чтобы указать способы подготовки.</p>{% endfor %}
   </div>
 </section>
 <script>

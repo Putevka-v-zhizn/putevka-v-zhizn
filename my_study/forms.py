@@ -116,10 +116,10 @@ class PreparationMethodsForm(forms.Form):
 
 
 class PreparationAddForm(forms.Form):
-    direction = forms.ChoiceField(label="Предмет или олимпиады")
+    direction = forms.ChoiceField(label="Предмет ЕГЭ")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["direction"].choices = [("olympiad", "Олимпиады")] + [
+        self.fields["direction"].choices = [
             (str(subject.pk), subject.name) for subject in Subject.objects.all()
         ]

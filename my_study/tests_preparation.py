@@ -30,10 +30,10 @@ class PreparationTests(TestCase):
         return self.client.post(reverse("study:select_course", args=[course.pk]), {"motivation": "Подготовка"})
 
     def test_add_directions_idempotently_and_delete(self):
-        for value in (str(self.subject.pk), "olympiad"):
+        for value in (str(self.subject.pk),):
             for _ in range(2):
                 self.client.post(reverse("study:add_preparation"), {"direction": value})
-        self.assertEqual(PreparationDirection.objects.count(), 2)
+        self.assertEqual(PreparationDirection.objects.count(), 1)
         for direction in PreparationDirection.objects.all():
             self.client.post(reverse("study:delete_preparation", args=[direction.pk]))
         self.assertFalse(PreparationDirection.objects.exists())
@@ -64,23 +64,23 @@ class PreparationTests(TestCase):
         self.select(self.course)
         another = Course.objects.create(title="Второй курс", school=self.school, subject=self.subject)
         self.select(another)
-        self.select(self.olymp)
+        self.assertEqual(self.select(self.olymp).status_code, 404)
         response = self.client.get(reverse("study:schools"))
         rows = list(response.context["directions"])
-        self.assertEqual([len(row.selections) for row in rows], [2, 1])
+        self.assertEqual([len(row.selections) for row in rows], [2])
         self.client.post(reverse("study:delete_preparation", args=[direction.pk]))
         self.assertTrue(PreparationDirection.objects.filter(pk=direction.pk).exists())
         self.client.post(reverse("study:unselect_course", args=[self.course.pk]))
         direction.refresh_from_db()
         self.assertTrue(direction.independently)
-        self.assertEqual(CourseSelection.objects.count(), 2)
+        self.assertEqual(CourseSelection.objects.count(), 1)
 
     def test_legacy_selections_backfilled_without_changing_answers(self):
         CourseSelection.objects.create(user=self.user, course=self.course)
         CourseSelection.objects.create(user=self.user, course=self.olymp)
         for _ in range(2):
             self.client.get(reverse("study:schools"))
-        self.assertEqual(PreparationDirection.objects.count(), 2)
+        self.assertEqual(PreparationDirection.objects.count(), 1)
         self.assertEqual(CourseSelection.objects.count(), 2)
         self.assertTrue(all(not row.has_answer for row in PreparationDirection.objects.all()))
 
@@ -113,7 +113,7 @@ class PreparationTests(TestCase):
         for status, expected in (("FINAL STAGE", 302), ("SCHOLAR", 302), ("REJECTED", 403)):
             info.status = status
             info.save()
-            self.assertEqual(self.client.post(reverse("study:add_preparation"), {"direction": "olympiad"}).status_code, expected)
+            self.assertEqual(self.client.post(reverse("study:add_preparation"), {"direction": str(self.subject.pk)}).status_code, expected)
 
     def test_database_constraints(self):
         direction = self.direction()
@@ -151,16 +151,15 @@ class PreparationAdminTests(TestCase):
     def test_admin_rejects_invalid_methods_and_kind(self):
         from .admin import PreparationDirectionAdminForm
         for values in (
-            {"subject": self.subject.pk, "is_olympiad": True},
             {},
             {"subject": self.subject.pk, "not_started": True, "independently": True},
         ):
             form = PreparationDirectionAdminForm(data={"user": self.user.pk, **values})
             self.assertFalse(form.is_valid())
-        form = PreparationDirectionAdminForm(data={"user": self.user.pk, "is_olympiad": True})
+        form = PreparationDirectionAdminForm(data={"user": self.user.pk, "subject": self.subject.pk})
         self.assertTrue(form.is_valid(), form.errors)
         form.save()
-        duplicate = PreparationDirectionAdminForm(data={"user": self.user.pk, "is_olympiad": True})
+        duplicate = PreparationDirectionAdminForm(data={"user": self.user.pk, "subject": self.subject.pk})
         self.assertFalse(duplicate.is_valid())
 
     def test_admin_assign_course_creates_direction_and_preserves_methods(self):
@@ -171,7 +170,7 @@ class PreparationAdminTests(TestCase):
         for course in (self.course, self.olymp):
             response = self.client.post(url, {"user": self.user.pk, "course": course.pk, "motivation": "Назначен", "_save": "Save"})
             self.assertEqual(response.status_code, 302)
-        self.assertEqual(PreparationDirection.objects.filter(user=self.user).count(), 2)
+        self.assertEqual(PreparationDirection.objects.filter(user=self.user).count(), 1)
         direction.refresh_from_db()
         self.assertTrue(direction.independently)
         response = self.client.post(reverse("admin:my_study_preparationdirection_delete", args=[direction.pk]), {"post": "yes"})
@@ -183,3 +182,20 @@ class PreparationAdminTests(TestCase):
         response = self.client.get(reverse("admin:my_study_preparationdirection_changelist"), {"q": self.user.username})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["cl"].result_count, 1)
+
+
+class EgeOnlyTests(TestCase):
+    setUpTestData = PreparationTests.__dict__["setUpTestData"]
+    setUp = PreparationTests.setUp
+    def test_olympiads_hidden_and_old_data_preserved(self):
+        archived = PreparationDirection.objects.create(user=self.user, is_olympiad=True, independently=True)
+        CourseSelection.objects.create(user=self.user, course=self.olymp)
+        response = self.client.get(reverse("study:schools"))
+        self.assertNotContains(response, "Олимпиады")
+        self.assertNotContains(response, self.olymp.title)
+        self.client.post(reverse("study:add_preparation"), {"direction": "olympiad"})
+        for action in ("update_preparation", "delete_preparation"):
+            self.assertEqual(self.client.post(reverse(f"study:{action}", args=[archived.pk])).status_code, 404)
+        archived.refresh_from_db()
+        self.assertTrue(archived.independently)
+        self.assertEqual(CourseSelection.objects.count(), 1)
