@@ -274,7 +274,7 @@ class NtoTravelTests(TestCase):
             "ticket_cost": 1000, "income_per_member": 25000, "income_proof": True, "circumstance_proof": True, "is_adult": False,
             "family_material_status": UserInfo.FamilyMaterialStatus.values[0],
             "circumstances": ["none"], "universities": ["ТГУ"],
-            "specializations": ["Информатика"], "no_achievements": True,
+            "specializations": ["Информатика"], "achievements": ["Участвовал в школьном этапе"],
             "olympiad_plans": "Планирую НТО", "preparation_methods": ["self_study"],
             "preparation_details": "Занимаюсь еженедельно", "nto_goal": "Участие в финале",
             "refused_olympiads": False, "admission_without_trip": "Буду искать другие пути",

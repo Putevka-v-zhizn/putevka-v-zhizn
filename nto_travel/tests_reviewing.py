@@ -71,6 +71,8 @@ class NtoReviewingTests(TestCase):
         self.assertNotContains(response, "Стоимость одобренных поездок")
         self.assertNotContains(response, "Из них по текущим фильтрам")
         self.assertEqual(list(response.context["applications"]), [first])
+        by_city = self.client.get(reverse('nto_staff:queue'), {'campaign': self.campaign.slug, 'city': 'Москва', 'profile': second_profile.external_code})
+        self.assertEqual(list(by_city.context['applications']), [first])
         response = self.client.get(reverse('nto_staff:queue'), {'campaign': self.campaign.slug, 'profile': [second_profile.external_code, self.profile.external_code]})
         self.assertEqual(list(response.context['applications']), [first])
         response = self.client.get(reverse('nto_staff:queue'), {'campaign': self.campaign.slug, 'profile': second_profile.external_code, 'priority': 'first'})

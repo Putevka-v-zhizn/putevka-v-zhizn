@@ -1,0 +1,5 @@
+[data-multiselect-field] .choices { margin-bottom: 0; }
+[data-multiselect-field] .choices__inner { background: #fff; border-radius: .375rem; min-height: 38px; }
+[data-multiselect-field] .choices__list--multiple .choices__item { background: #0d6efd; border-color: #0d6efd; white-space: normal; overflow-wrap: anywhere; }
+[data-multiselect-field] .choices__list--dropdown .choices__item { overflow-wrap: anywhere; }
+[data-multiselect-field] .is-focused .choices__inner { border-color: #86b7fe; box-shadow: 0 0 0 .25rem rgba(13,110,253,.25); }

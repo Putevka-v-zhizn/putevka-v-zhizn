@@ -104,7 +104,7 @@ def validate_submission(app):
     for key in ("universities", "specializations"):
         values = getattr(app, key)
         require(isinstance(values, list) and 1 <= len(values) <= 5 and all(isinstance(v, str) and bool(v.strip()) for v in values), key)
-    require(isinstance(app.achievements, list) and len(app.achievements) <= 5 and all(isinstance(v, str) and bool(v.strip()) for v in app.achievements), "achievements")
+    require(isinstance(app.achievements, list) and 1 <= len(app.achievements) <= 5 and all(isinstance(v, str) and bool(v.strip()) for v in app.achievements), "achievements")
     require(_valid_list(app.preparation_methods, PREPARATION_CHOICES), "preparation_methods")
     for key in ("olympiad_plans", "preparation_details", "nto_goal", "admission_without_trip"):
         require(bool((getattr(app, key) or "").strip()), key)

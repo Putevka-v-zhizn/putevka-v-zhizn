@@ -52,7 +52,7 @@
             const profile = profiles.get(id);
             const row = element('li', 'nto-profile-row border rounded p-3 mb-2');
             row.tabIndex = -1;
-            row.append(element('span', 'badge bg-secondary rounded-pill mt-1', String(index + 1)));
+            row.append(element('span', 'badge bg-secondary rounded-pill mt-1', `Приоритет ${index + 1}`));
             const info = element('div', 'nto-profile-info');
             info.append(element('strong', 'd-block', profile.name), element('small', 'text-muted', profile.city));
             if (!profile.active) info.append(element('small', 'd-block text-warning', 'Профиль больше недоступен для выбора.'));

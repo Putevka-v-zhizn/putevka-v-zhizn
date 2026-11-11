@@ -21,13 +21,14 @@
   </nav>
   {% if not editable %}<div class="alert alert-warning">Сейчас заявка доступна только для просмотра.</div>{% endif %}
   <form method="post" novalidate>
+    <p class="text-muted"><span class="text-danger">*</span> — обязательно для отправки. Неполный черновик можно сохранить. Если опыта участия в олимпиадах пока нет, так и напиши в ответе.</p>
     {% include 'nto_travel/_completeness.html' %}
     <style>[aria-invalid="true"] { border: 2px solid #b86e00; }</style>
     {% csrf_token %}
     {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
     {% for field in form.visible_fields %}
       <div class="mb-3">
-        <label class="form-label d-block" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        <label class="form-label d-block" for="{{ field.id_for_label }}">{{ field.label }}{% if field.name in required_submission_fields %} <span class="text-danger" title="Обязательно для отправки">*</span>{% endif %}</label>
         {% if field.name == 'ticket_cost' and editable %}
           <div class="input-group">
             <button class="btn btn-outline-secondary" type="button" data-ticket-delta="-500" aria-label="Уменьшить стоимость на 500 рублей">−500</button>

@@ -33,7 +33,8 @@ def _filtered(campaign, params):
     if params.get("region"):
         qs = qs.filter(region__icontains=params["region"].strip()[:100])
     if params.get("city"):
-        qs = qs.filter(final_city=params["city"].strip()[:255])
+        city = params['city'].strip()[:255]
+        qs = qs.filter(Q(ranked_profiles__city_snapshot=city) | Q(ranked_profiles__city_snapshot='', ranked_profiles__profile__final_city=city) | Q(status='draft', ranked_profiles__profile__final_city=city))
     if params.get("profile"):
         codes = params.getlist('profile') if hasattr(params, 'getlist') else [params['profile']]
         conditions = {'ranked_profiles__profile__external_code__in': codes}
@@ -79,7 +80,7 @@ def queue(request):
         "campaigns": campaigns, "campaign": campaign, "applications": applications,
         "profiles": NtoProfile.objects.filter(campaign=campaign).order_by("name") if campaign else [],
         "selected_profiles": request.GET.getlist('profile'),
-        "cities": sorted(set(NtoApplication.objects.filter(campaign=campaign).exclude(final_city='').values_list('final_city', flat=True)) | set(NtoProfile.objects.filter(campaign=campaign).exclude(final_city='').values_list('final_city', flat=True))),
+        "cities": sorted(set(NtoApplication.objects.filter(campaign=campaign).exclude(final_city='').values_list('final_city', flat=True)) | set(NtoProfile.objects.filter(campaign=campaign).exclude(final_city='').values_list('final_city', flat=True)) | set(NtoApplication.objects.filter(campaign=campaign).exclude(ranked_profiles__city_snapshot='').values_list('ranked_profiles__city_snapshot', flat=True)) - {None}),
         "suppress_analytics": True,
         "status_choices": NtoApplication.Status.choices, "sort_links": sort_links,
         "approved_totals": _approved_totals(NtoApplication.objects.filter(campaign=campaign)),

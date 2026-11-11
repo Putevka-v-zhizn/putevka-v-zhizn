@@ -11,8 +11,8 @@
     <div class="col-md-2"><input class="form-control" name="q" value="{{ request.GET.q }}" placeholder="ФИО или email"></div>
     <div class="col-md-2"><input class="form-control" name="region" value="{{ request.GET.region }}" placeholder="Регион"></div>
     <div class="col-md-2"><select class="form-select" name="city" aria-label="Город финала"><option value="">Все города финала</option>{% for city in cities %}<option {% if request.GET.city == city %}selected{% endif %}>{{ city }}</option>{% endfor %}</select></div>
-    <div class="col-md-3"><label>Профили (можно несколько)<select name="profile" multiple class="form-select">{% for item in profiles %}<option value="{{ item.external_code }}" {% if item.external_code in selected_profiles %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select></label></div>
-    <div class="col-md-2"><select name="priority" class="form-select" aria-label="Приоритет профиля"><option value="">Любой приоритет</option><option value="first" {% if request.GET.priority == 'first' %}selected{% endif %}>Только первый</option></select></div>
+    <div class="col-md-3" data-multiselect-field><label for="profile-filter" class="form-label">Профили</label><select id="profile-filter" name="profile" multiple class="form-select" data-multiselect data-placeholder="Все профили" aria-describedby="profile-filter-help">{% for item in profiles %}<option value="{{ item.external_code }}" {% if item.external_code in selected_profiles %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select><div id="profile-filter-help" class="form-text">Можно выбрать несколько. Показываем заявки хотя бы с одним выбранным профилем.</div></div>
+    <div class="col-md-2"><select name="priority" class="form-select" aria-label="Приоритет профиля"><option value="">Любой приоритет</option><option value="first" {% if request.GET.priority == 'first' %}selected{% endif %}>Только первый</option></select><div class="form-text">Применяется только к выбранным профилям. Город ищется по всем профилям.</div></div>
     <div class="col-md-2"><button class="btn btn-primary">Найти</button></div>
   </form>
   {% if campaign %}
@@ -20,7 +20,7 @@
     {% if perms.nto_travel.export_nto_application %}<a class="btn btn-outline-secondary mb-3" href="{% url 'nto_staff:export' campaign.slug %}?{{ request.GET.urlencode }}">Выгрузить XLSX</a>{% endif %}
     {% if perms.nto_travel.manage_nto_campaign %}<a class="btn btn-outline-secondary mb-3" href="{% url 'nto_staff:profile_import' campaign.slug %}">Импорт профилей</a>{% endif %}
   {% endif %}
-  <div class="table-responsive"><table class="table table-striped"><thead><tr><th>ID</th><th>ФИО</th><th>Регион</th><th>Город финала</th><th>Статус</th><th>Отправлена</th><th><a class="btn btn-sm btn-outline-secondary" href="{{ sort_links.cost }}">Стоимость билетов, ₽ ↕</a></th><th><a class="btn btn-sm btn-outline-secondary" href="{{ sort_links.criticality }}">Критичность ↕</a></th><th><a class="btn btn-sm btn-outline-secondary" href="{{ sort_links.motivation }}">Мотивация ↕</a></th><th>Прочитали</th></tr></thead><tbody>
+  <div class="table-responsive"><table class="table table-striped"><thead><tr><th>ID</th><th>ФИО</th><th>Регион</th><th>Города финалов</th><th>Профили олимпиады</th><th>Статус</th><th>Отправлена</th><th><a class="btn btn-sm btn-outline-secondary" href="{{ sort_links.cost }}">Стоимость билетов, ₽ ↕</a></th><th><a class="btn btn-sm btn-outline-secondary" href="{{ sort_links.criticality }}">Критичность ↕</a></th><th><a class="btn btn-sm btn-outline-secondary" href="{{ sort_links.motivation }}">Мотивация ↕</a></th><th>Прочитали</th></tr></thead><tbody>
     {% for app in applications %}
       <tr>
         <td class="align-middle">{{ app.pk }}</td>
@@ -28,7 +28,8 @@
           <a class="btn btn-outline-primary m-2 text-start" href="{% url 'nto_staff:detail' app.campaign.slug app.pk %}">{% if app.last_name or app.first_name or app.middle_name %}{{ app.last_name }} {{ app.first_name }} {{ app.middle_name }}{% else %}Заявка №{{ app.pk }}{% endif %}</a>
         </td>
         <td class="align-middle">{{ app.region }}</td>
-        <td class="align-middle">{{ app.final_city }}{% for row in app.ranked_profiles.all %}<div class="small">{{ row.rank }}. {{ row.name_snapshot|default:row.profile.name }}</div>{% endfor %}</td>
+        <td class="align-middle">{% for row in app.ranked_profiles.all %}<div>{{ row.city_snapshot|default:row.profile.final_city }}</div>{% empty %}—{% endfor %}</td>
+        <td class="align-middle">{% for row in app.ranked_profiles.all %}<div>Приоритет {{ row.rank }}: {{ row.name_snapshot|default:row.profile.name }}</div>{% endfor %}</td>
         <td class="align-middle">{{ app.get_status_display }}</td>
         <td class="align-middle">{{ app.last_submitted_at|date:"d.m.Y H:i" }}</td>
         <td class="align-middle text-nowrap">{{ app.ticket_cost|rubles }}</td>
@@ -36,7 +37,7 @@
         <td class="align-middle">{{ app.review.motivation|default_if_none:"Не оценено"|default:"Не оценено" }}</td>
         <td class="align-middle">{% for mark in app.read_marks.all %}<div>{{ mark.user.get_full_name|default:mark.user.username }}</div>{% empty %}Пока никто{% endfor %}</td>
       </tr>
-    {% empty %}<tr><td colspan="10">Заявок нет.</td></tr>{% endfor %}
+    {% empty %}<tr><td colspan="11">Заявок нет.</td></tr>{% endfor %}
   </tbody></table></div>
 </div>
 {% endblock %}

@@ -82,6 +82,7 @@ def apply_step(request, slug, step):
         "campaign": campaign, "application": app, "step": step, "form": form,
         "ranking": ranking, "editable": editable, "suppress_analytics": True,
         "sections": sections,
+        "required_submission_fields": {'last_name', 'first_name', 'region', 'city', 'school_class', 'phone', 'telegram', 'is_adult', 'previous_final', 'possible_payers', 'school_support', 'parent_support', 'ticket_cost', 'income_per_member', 'income_proof', 'family_material_status', 'circumstances', 'circumstance_proof', 'universities_text', 'specializations_text', 'achievements_text', 'olympiad_plans', 'preparation_details', 'nto_goal', 'refused_olympiads', 'admission_without_trip', 'has_admission_advantages'},
     })
 
 
