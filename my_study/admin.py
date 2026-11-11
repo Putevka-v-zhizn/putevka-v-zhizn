@@ -1,7 +1,8 @@
+from django import forms
 from django.contrib import admin
 
 from scholar_form.models import ScholarVideo
-from .models import Subject, School, Course, CourseSelection, UniversityPriority, AssessmentResult, ProgressTrackerFile
+from .models import Subject, School, Course, CourseSelection, UniversityPriority, AssessmentResult, ProgressTrackerFile, PreparationDirection
 
 
 @admin.register(Subject)
@@ -28,7 +29,13 @@ class CourseAdmin(admin.ModelAdmin):
 class CourseSelectionAdmin(admin.ModelAdmin):
     list_display = ("user", "course", "created_at")
     list_filter = ("course__school", "course__subject")
-    search_fields = ("motivation",)
+    search_fields = ("user__username", "user__first_name", "user__last_name", "course__title", "motivation")
+    raw_id_fields = ("user",)
+    list_select_related = ("user", "course")
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        PreparationDirection.objects.get_or_create(user=obj.user, subject_id=obj.course.subject_id)
 
 @admin.register(UniversityPriority)
 class UniversityPriorityAdmin(admin.ModelAdmin):
@@ -47,3 +54,51 @@ class AssessmentResultAdmin(admin.ModelAdmin):
 @admin.register(ProgressTrackerFile)
 class ProgressTrackerFileAdmin(admin.ModelAdmin):
     list_display = ("title", "updated_at")
+
+
+class PreparationDirectionAdminForm(forms.ModelForm):
+    class Meta:
+        model = PreparationDirection
+        fields = ("user", "subject", "not_started", "independently", "with_tutor_or_school")
+        labels = {
+            "user": "Ребёнок",
+            "subject": "Предмет ЕГЭ",
+            "not_started": "Не начал готовиться",
+            "independently": "Готовится самостоятельно",
+            "with_tutor_or_school": "Готовится с репетитором / в школе",
+        }
+        help_texts = {
+            "not_started": "Нельзя сочетать с другими способами. Все пустые отметки означают, что способ не указан.",
+        }
+
+    def clean(self):
+        data = super().clean()
+        if not data.get("subject"):
+            self.add_error("subject", "Выберите предмет ЕГЭ.")
+        if data.get("not_started") and (data.get("independently") or data.get("with_tutor_or_school")):
+            self.add_error("not_started", "«Не начал» нельзя сочетать с другими способами подготовки.")
+        return data
+
+
+@admin.register(PreparationDirection)
+class PreparationDirectionAdmin(admin.ModelAdmin):
+    form = PreparationDirectionAdminForm
+    list_display = ("user", "direction_name", "not_started", "independently", "with_tutor_or_school", "updated_at")
+    list_filter = ("subject", "not_started", "independently", "with_tutor_or_school")
+    search_fields = ("user__username", "user__first_name", "user__last_name", "user__email")
+    raw_id_fields = ("user",)
+    readonly_fields = ("updated_at",)
+    list_select_related = ("user", "subject")
+    actions = None
+
+    @admin.display(description="Направление")
+    def direction_name(self, obj):
+        return obj.title
+
+    def has_delete_permission(self, request, obj=None):
+        if not super().has_delete_permission(request, obj):
+            return False
+        if obj is None:
+            return True
+        selections = CourseSelection.objects.filter(user_id=obj.user_id, course__subject_id=obj.subject_id)
+        return not selections.exists()

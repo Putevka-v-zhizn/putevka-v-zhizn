@@ -17,7 +17,7 @@ class CourseSelectionForm(forms.ModelForm):
         model = CourseSelection
         fields = ["motivation", "need_tutor"]
         widgets = {
-            "motivation": forms.Textarea(attrs={"rows": 6, "placeholder": "Почему вы выбрали этот курс?"}),
+            "motivation": forms.Textarea(attrs={"rows": 6, "placeholder": "Почему ты выбрал этот курс?"}),
             'need_tutor': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
@@ -43,7 +43,7 @@ class UniversityPriorityForm(forms.ModelForm):
         ]
         widgets = {
             "priority": forms.Select(choices=[(i, str(i)) for i in range(1, 6)]),
-            "notes": forms.Textarea(attrs={"rows": 6, "placeholder": "Почему вы выбрали этот вуз?"}),
+            "notes": forms.Textarea(attrs={"rows": 6, "placeholder": "Почему ты выбрал этот вуз?"}),
             "university": forms.TextInput(attrs={"placeholder": "ВМиП (вуз милых и прикольных)"}),
             "city": forms.TextInput(attrs={"placeholder": "поселок городского типа Шаранга"}),
             "specialty": forms.TextInput(attrs={"placeholder": "Программная инженерия"}),
@@ -88,7 +88,7 @@ class UniversityPriorityForm(forms.ModelForm):
             if exists_qs.exists():
                 self.add_error(
                     "specialty",
-                    "Это направление в этом вузе уже есть в вашем списке.",
+                    "Это направление в этом вузе уже есть в твоём списке.",
                 )
 
         return cleaned
@@ -101,3 +101,25 @@ class AssessmentResultForm(forms.ModelForm):
         widgets = {
             "date": forms.DateInput(attrs={"type": "date"})
         }
+
+
+class PreparationMethodsForm(forms.Form):
+    not_started = forms.BooleanField(required=False, label="Не начал готовиться к этому предмету")
+    independently = forms.BooleanField(required=False, label="Готовлюсь самостоятельно")
+    with_tutor_or_school = forms.BooleanField(required=False, label="Готовлюсь с репетитором / в школе")
+
+    def clean(self):
+        data = super().clean()
+        if data.get("not_started") and (data.get("independently") or data.get("with_tutor_or_school")):
+            raise forms.ValidationError("«Не начал» нельзя сочетать с другими способами подготовки.")
+        return data
+
+
+class PreparationAddForm(forms.Form):
+    direction = forms.ChoiceField(label="Предмет ЕГЭ")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["direction"].choices = [
+            (str(subject.pk), subject.name) for subject in Subject.objects.all()
+        ]

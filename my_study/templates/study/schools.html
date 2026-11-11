@@ -1,6 +1,7 @@
 {% extends "study/base_study.html" %}
 {% load widget_tweaks %}
 {% block study_content %}
+{% include "study/preparation.html" %}
 
 <form class="row g-2 mb-3" method="get">
   <div class="col-md-3">
@@ -69,7 +70,7 @@
 
 {% if selections %}
 <hr class="my-4">
-<h5 class="mb-3">{% if user.user_info.status == "SCHOLAR" %}Ваши выбранные курсы{% else %}Заявка на курсы{% endif %}</h5>
+<h5 class="mb-3">{% if user.user_info.status == "SCHOLAR" %}Твои выбранные курсы{% else %}Заявка на курсы{% endif %}</h5>
 <div class="list-group">
   {% for sel in selections %}
     <div class="list-group-item">

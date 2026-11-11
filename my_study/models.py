@@ -1,3 +1,4 @@
+from django import VERSION
 from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -51,7 +52,7 @@ class Course(models.Model):
 class CourseSelection(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="course_selections")
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="selections")
-    motivation = models.TextField(help_text="Почему вы выбрали этот курс/направление?")
+    motivation = models.TextField(help_text="Почему ты выбрал этот курс/направление?")
     need_tutor = models.BooleanField(default=False, help_text="Нужен куратор")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -135,3 +136,32 @@ class ProgressTrackerFile(models.Model):
 
     def __str__(self):
         return self.title or f"Трекер (обновлён: {self.updated_at:%d.%m.%Y})"
+
+
+class PreparationDirection(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="preparation_directions")
+    subject = models.ForeignKey(Subject, on_delete=models.PROTECT)
+    not_started = models.BooleanField(default=False)
+    independently = models.BooleanField(default=False)
+    with_tutor_or_school = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Направление подготовки"
+        verbose_name_plural = "Направления подготовки"
+        ordering = ["subject__name"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "subject"], name="unique_preparation_subject"),
+            models.CheckConstraint(**{("condition" if VERSION >= (5, 1) else "check"): (models.Q(not_started=False) | models.Q(independently=False, with_tutor_or_school=False))}, name="preparation_methods_exclusive"),
+        ]
+
+    def __str__(self):
+        return f"{self.user} — {self.title}"
+
+    @property
+    def title(self):
+        return self.subject.name
+
+    @property
+    def has_answer(self):
+        return self.not_started or self.independently or self.with_tutor_or_school

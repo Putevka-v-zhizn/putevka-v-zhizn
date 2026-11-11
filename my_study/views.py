@@ -6,6 +6,9 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import Q
+from django.views.decorators.http import require_POST
+from .forms import PreparationAddForm, PreparationMethodsForm
+from .models import PreparationDirection
 from django.shortcuts import get_object_or_404, redirect, render
 
 from core.decorators import ensure_registration_gate
@@ -54,7 +57,29 @@ def schools_and_courses(request):
     if request.user.user_info.status == "ALTERNATIVE":
         selections = selections.filter(course__available_to_alternative=True)
 
+    # Include subjects from existing course selections.
+    all_selections = list(CourseSelection.objects.filter(user=request.user).select_related("course"))
+    for selection in all_selections:
+        ensure_course_direction(request.user, selection.course)
+    grouped = {}
+    for selection in selections:
+        key = selection.course.subject_id
+        grouped.setdefault(key, []).append(selection)
+    directions = list(PreparationDirection.objects.filter(user=request.user).select_related("subject"))
+    for direction in directions:
+        key = direction.subject_id
+        direction.selections = grouped.get(key, [])
+        direction.has_courses = any(
+            sel.course.subject_id == direction.subject_id
+            for sel in all_selections
+        )
+        direction.methods_form = PreparationMethodsForm(initial={
+            field: getattr(direction, field) for field in PreparationMethodsForm.base_fields
+        }, prefix=f"preparation-{direction.pk}")
+
     return render(request, "study/schools.html", {
+        "directions": directions,
+        "preparation_add_form": PreparationAddForm(),
         "subjects": subjects,
         "schools": schools,
         "courses": courses,
@@ -85,7 +110,8 @@ def select_course(request, course_id):
                 selection.motivation = form.cleaned_data["motivation"]
                 selection.need_tutor = form.cleaned_data["need_tutor"]
                 selection.save()
-            messages.success(request, "Ваш выбор сохранён.")
+            ensure_course_direction(request.user, course)
+            messages.success(request, "Твой выбор сохранён.")
             return redirect("study:schools")
     else:
         initial = {}
@@ -149,10 +175,10 @@ def universities(request):
             except IntegrityError:
                 messages.warning(
                     request,
-                    "Такой приоритет или направление уже заняты. Выберите другие значения."
+                    "Такой приоритет или направление уже заняты. Выбери другие значения."
                 )
         else:
-            messages.warning(request, "Исправьте ошибки в форме.")
+            messages.warning(request, "Исправь ошибки в форме.")
     else:
         form = UniversityPriorityForm(user=request.user)
 
@@ -193,3 +219,58 @@ def assessments(request):
 
     return render(request, "study/assessments.html",
                   {"form": form, "results": results, "active": "study", "tracker": tracker})
+
+
+def ensure_course_direction(user, course):
+    return PreparationDirection.objects.get_or_create(
+        user=user, subject_id=course.subject_id,
+    )[0]
+
+
+@login_required
+@study_access_required
+@ensure_registration_gate('protected')
+@require_POST
+def add_preparation(request):
+    form = PreparationAddForm(request.POST)
+    if form.is_valid():
+        value = form.cleaned_data["direction"]
+        PreparationDirection.objects.get_or_create(
+            user=request.user, subject_id=int(value),
+        )
+        messages.success(request, "Направление подготовки добавлено.")
+    else:
+        messages.error(request, "Выбери предмет ЕГЭ из списка.")
+    return redirect("study:schools")
+
+
+@login_required
+@study_access_required
+@ensure_registration_gate('protected')
+@require_POST
+def update_preparation(request, pk):
+    direction = get_object_or_404(PreparationDirection, pk=pk, user=request.user)
+    form = PreparationMethodsForm(request.POST, prefix=f"preparation-{pk}")
+    if form.is_valid():
+        for field, value in form.cleaned_data.items():
+            setattr(direction, field, value)
+        direction.save()
+        messages.success(request, "Способы подготовки сохранены.")
+    else:
+        messages.error(request, "«Не начал» нельзя сочетать с другими способами подготовки. Изменения не сохранены.")
+    return redirect("study:schools")
+
+
+@login_required
+@study_access_required
+@ensure_registration_gate('protected')
+@require_POST
+def delete_preparation(request, pk):
+    direction = get_object_or_404(PreparationDirection, pk=pk, user=request.user)
+    selections = CourseSelection.objects.filter(user=request.user, course__subject_id=direction.subject_id)
+    if selections.exists():
+        messages.error(request, "Сначала удали выбранные курсы этого направления. Если курс недоступен, обратись к администратору.")
+    else:
+        direction.delete()
+        messages.success(request, "Направление подготовки удалено.")
+    return redirect("study:schools")
