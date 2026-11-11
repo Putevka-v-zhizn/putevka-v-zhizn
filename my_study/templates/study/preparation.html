@@ -32,7 +32,7 @@
             <form id="preparation-form-{{ direction.pk }}" method="post" action="{% url 'study:update_preparation' direction.pk %}" data-preparation-methods data-not-started="{{ direction.not_started|yesno:'true,false' }}" data-independently="{{ direction.independently|yesno:'true,false' }}" data-with-tutor-or-school="{{ direction.with_tutor_or_school|yesno:'true,false' }}">
               {% csrf_token %}
               {{ direction.methods_form.non_field_errors }}
-              <fieldset><legend class="fs-6">Как готовишься: {{ direction.title }}</legend>
+              <fieldset><legend class="fs-6 float-none w-auto">Как готовишься: {{ direction.title }}</legend>
               {% for field in direction.methods_form %}
                 {% if field.is_hidden %}{{ field }}{{ field.errors }}{% else %}
                 <div class="form-check mb-2">{{ field }}<label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field.errors }}</div>
