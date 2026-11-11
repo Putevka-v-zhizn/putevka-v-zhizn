@@ -30,12 +30,27 @@ class School(models.Model):
         return self.name
 
 
+class CourseDuration(models.Model):
+    name = models.CharField("Название", max_length=100, unique=True)
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "Срок курса"
+        verbose_name_plural = "Сроки курсов"
+
+    def __str__(self):
+        return self.name
+
+
 class Course(models.Model):
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="courses")
     title = models.CharField(max_length=200)
     subject = models.ForeignKey(Subject, on_delete=models.PROTECT, related_name="courses")
     description = models.TextField(blank=True)
     link = models.URLField(blank=True)
+    is_olympiad = models.BooleanField("Олимпиадный", default=False)
+    duration = models.ForeignKey(CourseDuration, verbose_name="Срок курса", null=True, blank=True,
+                                 on_delete=models.PROTECT, related_name="courses")
     available_to_alternative = models.BooleanField(
         "Доступен альтернативному треку",
         default=False,

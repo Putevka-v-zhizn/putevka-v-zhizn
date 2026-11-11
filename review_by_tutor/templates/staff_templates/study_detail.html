@@ -6,6 +6,36 @@
     <div class="container py-4">
         <h1 class="mb-4">Учёба: {{ user_obj.get_full_name|default:user_obj.username }}</h1>
 
+        <section class="card mb-4" aria-labelledby="staff-preparation-heading">
+            <div class="card-header" id="staff-preparation-heading">Подготовка к ЕГЭ</div>
+            <div class="card-body">
+                {% for row in preparation_rows %}
+                    <article class="border rounded p-3 mb-3">
+                        <h2 class="h5">{{ row.subject.name }}</h2>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <h3 class="h6">Курсы</h3>
+                                {% for selection in row.selections %}
+                                    <div class="mb-2">
+                                        <div class="fw-semibold">{{ selection.course.title }}</div>
+                                        <div class="small text-muted">{{ selection.course.school.name }}{% if selection.course.duration %} • {{ selection.course.duration.name }}{% endif %}</div>
+                                        {% if selection.course.link %}<a href="{{ selection.course.link }}" target="_blank" rel="noopener noreferrer">Ссылка на курс</a>{% endif %}
+                                    </div>
+                                {% empty %}<p class="text-muted mb-0">Нет выбранных курсов</p>{% endfor %}
+                            </div>
+                            <div class="col-md-6">
+                                <h3 class="h6">Способы подготовки</h3>
+                                {% if row.has_answer %}
+                                    <ul class="mb-2">{% for method in row.staff_methods %}<li>{{ method }}</li>{% endfor %}</ul>
+                                {% else %}<p class="text-muted mb-2">Способ подготовки не указан</p>{% endif %}
+                                {% if row.direction %}<div class="small text-muted">Обновлено: {{ row.direction.updated_at|date:"d.m.Y H:i" }}</div>{% endif %}
+                            </div>
+                        </div>
+                    </article>
+                {% empty %}<p class="text-muted mb-0">Предметы подготовки к ЕГЭ пока не указаны.</p>{% endfor %}
+            </div>
+        </section>
+
         {# --- Выбранные курсы --- #}
         <div class="card mb-4">
             <div class="card-header">Выбранные курсы</div>
@@ -34,7 +64,7 @@
                                             </div>
                                         {% endif %}
                                     </td>
-                                    <td>{{ s.course.school.name }}</td>
+                                    <td>{{ s.course.school.name }}{% if s.course.duration %}<div class="small text-muted">{{ s.course.duration.name }}</div>{% endif %}</td>
                                     <td>{{ s.course.subject.name }}</td>
                                     <td class="text-break">{{ s.motivation|default:"—" }}</td>
                                     <td>{{ s.need_tutor }}</td>
