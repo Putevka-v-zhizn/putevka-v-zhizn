@@ -8,8 +8,9 @@ from .models import CourseDuration, Subject, School, Course, CourseSelection, Un
 
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
-    list_display = ("name", "is_top")
-    list_filter = ("is_top",)
+    list_display = ("name", "is_top", "is_olympiad")
+    list_editable = ("is_olympiad",)
+    list_filter = ("is_top", "is_olympiad")
     prepopulated_fields = {"slug": ("name",)}
 
 
@@ -20,9 +21,9 @@ class SchoolAdmin(admin.ModelAdmin):
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display = ("title", "school", "subject", "available_to_alternative", "is_olympiad", "duration")
-    list_editable = ("available_to_alternative", "is_olympiad", "duration")
-    list_filter = ("available_to_alternative", "is_olympiad", "duration", "school", "subject")
+    list_display = ("title", "school", "subject", "available_to_alternative", "duration")
+    list_editable = ("available_to_alternative", "duration")
+    list_filter = ("available_to_alternative", "subject__is_olympiad", "duration", "school", "subject")
     search_fields = ("title", "description")
 
 
@@ -72,12 +73,16 @@ class PreparationDirectionAdminForm(forms.ModelForm):
             "not_started": "Нельзя сочетать с другими способами. Все пустые отметки означают, что способ не указан.",
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["subject"].queryset = Subject.objects.filter(is_olympiad=False)
+
     def clean(self):
         data = super().clean()
         if not data.get("subject"):
             self.add_error("subject", "Выберите предмет ЕГЭ.")
         user, subject = data.get("user"), data.get("subject")
-        if data.get("not_started") and user and subject and CourseSelection.objects.filter(user=user, course__subject=subject, course__is_olympiad=False).exists():
+        if data.get("not_started") and user and subject and CourseSelection.objects.filter(user=user, course__subject=subject, course__subject__is_olympiad=False).exists():
             self.add_error("not_started", "У ребёнка выбран курс: «Не начал» недоступен.")
         if data.get("not_started") and (data.get("independently") or data.get("with_tutor_or_school")):
             self.add_error("not_started", "«Не начал» нельзя сочетать с другими способами подготовки.")
@@ -95,6 +100,9 @@ class PreparationDirectionAdmin(admin.ModelAdmin):
     list_select_related = ("user", "subject")
     actions = None
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(subject__is_olympiad=False)
+
     @admin.display(description="Направление")
     def direction_name(self, obj):
         return obj.title
@@ -104,7 +112,7 @@ class PreparationDirectionAdmin(admin.ModelAdmin):
             return False
         if obj is None:
             return True
-        selections = CourseSelection.objects.filter(user_id=obj.user_id, course__subject_id=obj.subject_id, course__is_olympiad=False)
+        selections = CourseSelection.objects.filter(user_id=obj.user_id, course__subject_id=obj.subject_id, course__subject__is_olympiad=False)
         return not selections.exists()
 
 

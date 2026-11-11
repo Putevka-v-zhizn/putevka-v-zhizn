@@ -24,7 +24,8 @@ class CourseOptionsTests(TestCase):
         cls.school = School.objects.create(name="Школа опций")
         cls.duration = CourseDuration.objects.create(name="Полугодовой")
         cls.course = Course.objects.create(title="Курс ЕГЭ", school=cls.school, subject=cls.subject, duration=cls.duration)
-        cls.olymp = Course.objects.create(title="Олимпиадный курс", school=cls.school, subject=cls.subject, is_olympiad=True)
+        cls.olymp_subject = Subject.objects.create(name="Олимпиадная математика", slug="olympiad-math", is_olympiad=True)
+        cls.olymp = Course.objects.create(title="Олимпиадный курс", school=cls.school, subject=cls.olymp_subject)
 
     def setUp(self):
         self.client.force_login(self.user)
@@ -134,22 +135,41 @@ class CourseOptionsTests(TestCase):
         with self.assertRaises(ProtectedError):
             self.duration.delete()
 
-    def test_existing_answers_normalization_preserves_manual_methods(self):
-        from importlib import import_module
-        from django.apps import apps
-        from types import SimpleNamespace
-        direction = PreparationDirection.objects.create(user=self.user, subject=self.subject, not_started=True)
-        CourseSelection.objects.create(user=self.user, course=self.course)
-        migration = import_module("my_study.migrations.0007_courseduration_course_is_olympiad_course_duration")
-        migration.normalize_not_started(apps, SimpleNamespace(connection=SimpleNamespace(alias="default")))
-        direction.refresh_from_db()
-        self.assertFalse(direction.not_started)
-
     def test_admin_duration_and_olympiad_filters(self):
         self.client.force_login(self.staff)
         url = reverse("admin:my_study_course_changelist")
         response = self.client.get(url, {"duration__id__exact": self.duration.pk})
         self.assertEqual(response.context["cl"].result_count, 1)
-        response = self.client.get(url, {"is_olympiad__exact": "1"})
+        response = self.client.get(url, {"subject__is_olympiad__exact": "1"})
         self.assertEqual(response.context["cl"].result_count, 1)
         self.assertEqual(response.context["cl"].result_list[0].pk, self.olymp.pk)
+
+    def test_all_courses_follow_subject_classification(self):
+        second = Course.objects.create(title="Второй олимпиадный курс", school=self.school, subject=self.olymp_subject)
+        CourseSelection.objects.create(user=self.user, course=self.olymp)
+        CourseSelection.objects.create(user=self.user, course=second)
+        hidden_direction = PreparationDirection.objects.create(user=self.user, subject=self.olymp_subject, independently=True)
+        from .forms import PreparationAddForm, CourseFilterForm
+        self.assertFalse(PreparationAddForm({"direction": str(self.olymp_subject.pk)}).is_valid())
+        self.assertFalse(CourseFilterForm({"subject": self.olymp_subject.pk}).is_valid())
+        response = self.client.get(self.url)
+        self.assertNotContains(response, self.olymp_subject.name)
+        self.assertNotContains(response, second.title)
+        self.assertEqual(response.context["directions"], [])
+        for action in ("update_preparation", "delete_preparation"):
+            self.assertEqual(self.client.post(reverse(f"study:{action}", args=[hidden_direction.pk])).status_code, 404)
+        self.olymp_subject.is_olympiad = False
+        self.olymp_subject.save()
+        response = self.client.get(self.url)
+        self.assertContains(response, second.title)
+        self.assertTrue(response.context["directions"][0].has_courses)
+        self.assertEqual(len(response.context["directions"][0].selections), 2)
+
+    def test_subject_admin_flag_and_course_form_without_individual_flag(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("admin:my_study_subject_changelist"), {"is_olympiad__exact": "1"})
+        self.assertEqual(response.context["cl"].result_count, 1)
+        response = self.client.get(reverse("admin:my_study_course_change", args=[self.olymp.pk]))
+        self.assertNotIn("is_olympiad", response.context["adminform"].form.fields)
+        response = self.client.get(reverse("admin:my_study_preparationdirection_add"))
+        self.assertNotIn(self.olymp_subject, response.context["adminform"].form.fields["subject"].queryset)

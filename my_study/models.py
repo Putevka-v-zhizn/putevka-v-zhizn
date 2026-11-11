@@ -10,6 +10,7 @@ class Subject(models.Model):
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=120, unique=True)
     is_top = models.BooleanField(default=False)
+    is_olympiad = models.BooleanField("Олимпиадный предмет", default=False)
 
     class Meta:
         ordering = ["name"]
@@ -48,7 +49,6 @@ class Course(models.Model):
     subject = models.ForeignKey(Subject, on_delete=models.PROTECT, related_name="courses")
     description = models.TextField(blank=True)
     link = models.URLField(blank=True)
-    is_olympiad = models.BooleanField("Олимпиадный", default=False)
     duration = models.ForeignKey(CourseDuration, verbose_name="Срок курса", null=True, blank=True,
                                  on_delete=models.PROTECT, related_name="courses")
     available_to_alternative = models.BooleanField(

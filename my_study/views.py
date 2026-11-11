@@ -23,10 +23,10 @@ logger = logging.getLogger(__name__)
 @login_required
 @study_access_required
 def schools_and_courses(request, *, preparation_error=None):
-    subjects = Subject.objects.all()
+    subjects = Subject.objects.filter(is_olympiad=False)
     qs = available_courses_for(
         request.user,
-        Course.objects.filter(is_olympiad=False).select_related("school", "subject", "duration"),
+        Course.objects.filter(subject__is_olympiad=False).select_related("school", "subject", "duration"),
     )
     schools = School.objects.filter(courses__in=qs).distinct()
 
@@ -53,14 +53,14 @@ def schools_and_courses(request, *, preparation_error=None):
 
     selections = (
         CourseSelection.objects
-        .filter(user=request.user, course__is_olympiad=False)
+        .filter(user=request.user, course__subject__is_olympiad=False)
         .select_related("course__school", "course__subject", "course__duration")
         .order_by("-created_at")
     )
     if request.user.user_info.status == "ALTERNATIVE":
         selections = selections.filter(course__available_to_alternative=True)
 
-    for selection in CourseSelection.objects.filter(user=request.user, course__is_olympiad=False).select_related("course"):
+    for selection in CourseSelection.objects.filter(user=request.user, course__subject__is_olympiad=False).select_related("course__subject"):
         ensure_course_direction(request.user, selection.course, clear_not_started=False)
     directions = []
     for row in preparation_rows(request.user, visible_selections=selections):
@@ -97,7 +97,7 @@ def schools_and_courses(request, *, preparation_error=None):
 @study_access_required
 @ensure_registration_gate('protected')
 def select_course(request, course_id):
-    course = get_object_or_404(Course.objects.select_related("school", "subject", "duration"), id=course_id, is_olympiad=False)
+    course = get_object_or_404(Course.objects.select_related("school", "subject", "duration"), id=course_id, subject__is_olympiad=False)
     if request.user.user_info.status == "ALTERNATIVE" and not course.available_to_alternative:
         raise PermissionDenied
     if request.method == "POST":
@@ -246,8 +246,8 @@ def add_preparation(request):
 @ensure_registration_gate('protected')
 @require_POST
 def update_preparation(request, pk):
-    direction = get_object_or_404(PreparationDirection, pk=pk, user=request.user)
-    has_courses = CourseSelection.objects.filter(user=request.user, course__subject=direction.subject, course__is_olympiad=False).exists()
+    direction = get_object_or_404(PreparationDirection, pk=pk, user=request.user, subject__is_olympiad=False)
+    has_courses = CourseSelection.objects.filter(user=request.user, course__subject=direction.subject, course__subject__is_olympiad=False).exists()
     form = PreparationMethodsForm(request.POST, prefix=f"preparation-{pk}", has_courses=has_courses)
     if form.is_valid():
         for field, value in form.cleaned_data.items():
@@ -264,8 +264,8 @@ def update_preparation(request, pk):
 @ensure_registration_gate('protected')
 @require_POST
 def delete_preparation(request, pk):
-    direction = get_object_or_404(PreparationDirection, pk=pk, user=request.user)
-    selections = CourseSelection.objects.filter(user=request.user, course__subject_id=direction.subject_id, course__is_olympiad=False)
+    direction = get_object_or_404(PreparationDirection, pk=pk, user=request.user, subject__is_olympiad=False)
+    selections = CourseSelection.objects.filter(user=request.user, course__subject_id=direction.subject_id, course__subject__is_olympiad=False)
     if selections.exists():
         messages.error(request, "Сначала удали выбранные курсы этого направления. Если курс недоступен, обратись к администратору.")
     else:
