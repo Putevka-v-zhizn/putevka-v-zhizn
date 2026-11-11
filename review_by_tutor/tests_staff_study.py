@@ -42,7 +42,8 @@ class StaffStudyPreparationTests(TestCase):
         rows = response.context["preparation_rows"]
         self.assertEqual(len(rows), 1)
         self.assertEqual(len(rows[0]["selections"]), 2)
-        self.assertContains(response, "Способ подготовки не указан")
+        self.assertContains(response, "Готовится на курсах")
+        self.assertNotContains(response, "Способ подготовки не указан")
         self.assertContains(response, self.school.name)
         self.assertFalse(PreparationDirection.objects.exists())
 

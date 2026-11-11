@@ -18,19 +18,15 @@
                                 {% for selection in row.selections %}
                                     <div class="mb-2">
                                         <div class="fw-semibold">{{ selection.course.title }}</div>
-                                        <div class="small text-muted">{{ selection.course.school.name }}</div>
+                                        <div class="small text-muted">{{ selection.course.school.name }}{% if selection.course.duration %} • {{ selection.course.duration.name }}{% endif %}</div>
                                         {% if selection.course.link %}<a href="{{ selection.course.link }}" target="_blank" rel="noopener noreferrer">Ссылка на курс</a>{% endif %}
                                     </div>
                                 {% empty %}<p class="text-muted mb-0">Нет выбранных курсов</p>{% endfor %}
                             </div>
                             <div class="col-md-6">
                                 <h3 class="h6">Способы подготовки</h3>
-                                {% if row.direction.has_answer %}
-                                    <ul class="mb-2">
-                                        {% if row.direction.not_started %}<li>Не начал готовиться к этому предмету</li>{% endif %}
-                                        {% if row.direction.independently %}<li>Готовится самостоятельно</li>{% endif %}
-                                        {% if row.direction.with_tutor_or_school %}<li>Готовится с репетитором / в школе</li>{% endif %}
-                                    </ul>
+                                {% if row.has_answer %}
+                                    <ul class="mb-2">{% for method in row.staff_methods %}<li>{{ method }}</li>{% endfor %}</ul>
                                 {% else %}<p class="text-muted mb-2">Способ подготовки не указан</p>{% endif %}
                                 {% if row.direction %}<div class="small text-muted">Обновлено: {{ row.direction.updated_at|date:"d.m.Y H:i" }}</div>{% endif %}
                             </div>
@@ -68,7 +64,7 @@
                                             </div>
                                         {% endif %}
                                     </td>
-                                    <td>{{ s.course.school.name }}</td>
+                                    <td>{{ s.course.school.name }}{% if s.course.duration %}<div class="small text-muted">{{ s.course.duration.name }}</div>{% endif %}</td>
                                     <td>{{ s.course.subject.name }}</td>
                                     <td class="text-break">{{ s.motivation|default:"—" }}</td>
                                     <td>{{ s.need_tutor }}</td>

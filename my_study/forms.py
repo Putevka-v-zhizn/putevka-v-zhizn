@@ -1,8 +1,10 @@
 from django import forms
-from .models import CourseSelection, UniversityPriority, AssessmentResult, Subject
+from .models import CourseSelection, UniversityPriority, AssessmentResult, Subject, CourseDuration
 
 
 class CourseFilterForm(forms.Form):
+    duration = forms.ModelChoiceField(queryset=CourseDuration.objects.all(), required=False,
+                                     empty_label="Любой срок", label="Срок курса")
     school = forms.IntegerField(required=False, widget=forms.NumberInput(attrs={"hidden": True}))
     subject = forms.ModelChoiceField(
         queryset=Subject.objects.all(), required=False, empty_label="Все предметы"
@@ -108,8 +110,18 @@ class PreparationMethodsForm(forms.Form):
     independently = forms.BooleanField(required=False, label="Готовлюсь самостоятельно")
     with_tutor_or_school = forms.BooleanField(required=False, label="Готовлюсь с репетитором / в школе")
 
+    def __init__(self, *args, has_courses=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.has_courses = has_courses
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "form-check-input"
+        if has_courses:
+            self.fields["not_started"].widget = forms.HiddenInput()
+
     def clean(self):
         data = super().clean()
+        if self.has_courses and data.get("not_started"):
+            self.add_error("not_started", "У тебя выбран курс: «Не начал» недоступен.")
         if data.get("not_started") and (data.get("independently") or data.get("with_tutor_or_school")):
             raise forms.ValidationError("«Не начал» нельзя сочетать с другими способами подготовки.")
         return data

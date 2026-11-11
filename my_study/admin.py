@@ -2,7 +2,8 @@ from django import forms
 from django.contrib import admin
 
 from scholar_form.models import ScholarVideo
-from .models import Subject, School, Course, CourseSelection, UniversityPriority, AssessmentResult, ProgressTrackerFile, PreparationDirection
+from .preparation import ensure_course_direction
+from .models import CourseDuration, Subject, School, Course, CourseSelection, UniversityPriority, AssessmentResult, ProgressTrackerFile, PreparationDirection
 
 
 @admin.register(Subject)
@@ -19,9 +20,9 @@ class SchoolAdmin(admin.ModelAdmin):
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display = ("title", "school", "subject", "available_to_alternative")
-    list_editable = ("available_to_alternative",)
-    list_filter = ("available_to_alternative", "school", "subject")
+    list_display = ("title", "school", "subject", "available_to_alternative", "is_olympiad", "duration")
+    list_editable = ("available_to_alternative", "is_olympiad", "duration")
+    list_filter = ("available_to_alternative", "is_olympiad", "duration", "school", "subject")
     search_fields = ("title", "description")
 
 
@@ -35,7 +36,7 @@ class CourseSelectionAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
-        PreparationDirection.objects.get_or_create(user=obj.user, subject_id=obj.course.subject_id)
+        ensure_course_direction(obj.user, obj.course)
 
 @admin.register(UniversityPriority)
 class UniversityPriorityAdmin(admin.ModelAdmin):
@@ -75,6 +76,9 @@ class PreparationDirectionAdminForm(forms.ModelForm):
         data = super().clean()
         if not data.get("subject"):
             self.add_error("subject", "Выберите предмет ЕГЭ.")
+        user, subject = data.get("user"), data.get("subject")
+        if data.get("not_started") and user and subject and CourseSelection.objects.filter(user=user, course__subject=subject, course__is_olympiad=False).exists():
+            self.add_error("not_started", "У ребёнка выбран курс: «Не начал» недоступен.")
         if data.get("not_started") and (data.get("independently") or data.get("with_tutor_or_school")):
             self.add_error("not_started", "«Не начал» нельзя сочетать с другими способами подготовки.")
         return data
@@ -100,5 +104,11 @@ class PreparationDirectionAdmin(admin.ModelAdmin):
             return False
         if obj is None:
             return True
-        selections = CourseSelection.objects.filter(user_id=obj.user_id, course__subject_id=obj.subject_id)
+        selections = CourseSelection.objects.filter(user_id=obj.user_id, course__subject_id=obj.subject_id, course__is_olympiad=False)
         return not selections.exists()
+
+
+@admin.register(CourseDuration)
+class CourseDurationAdmin(admin.ModelAdmin):
+    search_fields = ("name",)
+    list_display = ("name",)

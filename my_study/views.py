@@ -9,6 +9,7 @@ from django.db.models import Q
 from django.views.decorators.http import require_POST
 from .forms import PreparationAddForm, PreparationMethodsForm
 from .models import PreparationDirection
+from .preparation import ensure_course_direction, preparation_rows
 from django.shortcuts import get_object_or_404, redirect, render
 
 from core.decorators import ensure_registration_gate
@@ -21,11 +22,11 @@ logger = logging.getLogger(__name__)
 
 @login_required
 @study_access_required
-def schools_and_courses(request):
+def schools_and_courses(request, *, preparation_error=None):
     subjects = Subject.objects.all()
     qs = available_courses_for(
         request.user,
-        Course.objects.select_related("school", "subject"),
+        Course.objects.filter(is_olympiad=False).select_related("school", "subject", "duration"),
     )
     schools = School.objects.filter(courses__in=qs).distinct()
 
@@ -35,6 +36,8 @@ def schools_and_courses(request):
         subject = form.cleaned_data.get("subject")
         q = form.cleaned_data.get("q")
         school_id = request.GET.get("school")
+        if form.cleaned_data.get("duration"):
+            qs = qs.filter(duration=form.cleaned_data["duration"])
         if subject:
             qs = qs.filter(subject=subject)
         if school_id:
@@ -50,32 +53,31 @@ def schools_and_courses(request):
 
     selections = (
         CourseSelection.objects
-        .filter(user=request.user)
-        .select_related("course__school", "course__subject")
+        .filter(user=request.user, course__is_olympiad=False)
+        .select_related("course__school", "course__subject", "course__duration")
         .order_by("-created_at")
     )
     if request.user.user_info.status == "ALTERNATIVE":
         selections = selections.filter(course__available_to_alternative=True)
 
-    # Include subjects from existing course selections.
-    all_selections = list(CourseSelection.objects.filter(user=request.user).select_related("course"))
-    for selection in all_selections:
-        ensure_course_direction(request.user, selection.course)
-    grouped = {}
-    for selection in selections:
-        key = selection.course.subject_id
-        grouped.setdefault(key, []).append(selection)
-    directions = list(PreparationDirection.objects.filter(user=request.user).select_related("subject"))
-    for direction in directions:
-        key = direction.subject_id
-        direction.selections = grouped.get(key, [])
-        direction.has_courses = any(
-            sel.course.subject_id == direction.subject_id
-            for sel in all_selections
-        )
-        direction.methods_form = PreparationMethodsForm(initial={
-            field: getattr(direction, field) for field in PreparationMethodsForm.base_fields
-        }, prefix=f"preparation-{direction.pk}")
+    for selection in CourseSelection.objects.filter(user=request.user, course__is_olympiad=False).select_related("course"):
+        ensure_course_direction(request.user, selection.course, clear_not_started=False)
+    directions = []
+    for row in preparation_rows(request.user, visible_selections=selections):
+        direction = row["direction"]
+        direction.selections = row["selections"]
+        direction.has_courses = row["has_courses"]
+        direction.display_methods = row["child_methods"]
+        direction.editing = not row["has_answer"] or request.GET.get("edit_preparation") == str(direction.pk)
+        initial = {field: getattr(direction, field) for field in PreparationMethodsForm.base_fields}
+        if direction.has_courses:
+            initial["not_started"] = False
+        direction.methods_form = PreparationMethodsForm(initial=initial, has_courses=direction.has_courses,
+                                                        prefix=f"preparation-{direction.pk}")
+        if preparation_error and preparation_error[0] == direction.pk:
+            direction.methods_form = preparation_error[1]
+            direction.editing = True
+        directions.append(direction)
 
     return render(request, "study/schools.html", {
         "directions": directions,
@@ -95,7 +97,7 @@ def schools_and_courses(request):
 @study_access_required
 @ensure_registration_gate('protected')
 def select_course(request, course_id):
-    course = get_object_or_404(Course.objects.select_related("school", "subject"), id=course_id)
+    course = get_object_or_404(Course.objects.select_related("school", "subject", "duration"), id=course_id, is_olympiad=False)
     if request.user.user_info.status == "ALTERNATIVE" and not course.available_to_alternative:
         raise PermissionDenied
     if request.method == "POST":
@@ -221,11 +223,6 @@ def assessments(request):
                   {"form": form, "results": results, "active": "study", "tracker": tracker})
 
 
-def ensure_course_direction(user, course):
-    return PreparationDirection.objects.get_or_create(
-        user=user, subject_id=course.subject_id,
-    )[0]
-
 
 @login_required
 @study_access_required
@@ -250,14 +247,15 @@ def add_preparation(request):
 @require_POST
 def update_preparation(request, pk):
     direction = get_object_or_404(PreparationDirection, pk=pk, user=request.user)
-    form = PreparationMethodsForm(request.POST, prefix=f"preparation-{pk}")
+    has_courses = CourseSelection.objects.filter(user=request.user, course__subject=direction.subject, course__is_olympiad=False).exists()
+    form = PreparationMethodsForm(request.POST, prefix=f"preparation-{pk}", has_courses=has_courses)
     if form.is_valid():
         for field, value in form.cleaned_data.items():
             setattr(direction, field, value)
         direction.save()
         messages.success(request, "Способы подготовки сохранены.")
     else:
-        messages.error(request, "«Не начал» нельзя сочетать с другими способами подготовки. Изменения не сохранены.")
+        return schools_and_courses(request, preparation_error=(pk, form))
     return redirect("study:schools")
 
 
@@ -267,7 +265,7 @@ def update_preparation(request, pk):
 @require_POST
 def delete_preparation(request, pk):
     direction = get_object_or_404(PreparationDirection, pk=pk, user=request.user)
-    selections = CourseSelection.objects.filter(user=request.user, course__subject_id=direction.subject_id)
+    selections = CourseSelection.objects.filter(user=request.user, course__subject_id=direction.subject_id, course__is_olympiad=False)
     if selections.exists():
         messages.error(request, "Сначала удали выбранные курсы этого направления. Если курс недоступен, обратись к администратору.")
     else:

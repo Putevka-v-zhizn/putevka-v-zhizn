@@ -4,7 +4,7 @@
 {% include "study/preparation.html" %}
 
 <form class="row g-2 mb-3" method="get">
-  <div class="col-md-3">
+  <div class="col-md-2">
     <select class="form-select" name="school">
       <option value="">Все школы</option>
       {% for s in schools %}
@@ -12,9 +12,10 @@
       {% endfor %}
     </select>
   </div>
-  <div class="col-md-3">
+  <div class="col-md-2">
     {{ filter_form.subject|add_class:"form-select" }}
   </div>
+  <div class="col-md-2">{{ filter_form.duration|add_class:"form-select" }}</div>
   <div class="col-md-4">
     {{ filter_form.q|add_class:"form-control" }}
   </div>
@@ -40,7 +41,7 @@
     <div class="card h-100">
       <div class="card-body">
         <h5 class="card-title">{{ c.title }}</h5>
-        <p class="text-muted mb-1">{{ c.school.name }} • {{ c.subject.name }}</p>
+        <p class="text-muted mb-1">{{ c.school.name }} • {{ c.subject.name }}{% if c.duration %} • {{ c.duration.name }}{% endif %}</p>
         <p class="card-text small">{{ c.description|linebreaksbr }}</p>
         <div class="d-flex gap-2">
           {% if c.link %}
@@ -79,7 +80,7 @@
       <a class="stretched-link text-decoration-none" href="{% url 'study:select_course' sel.course_id %}">
         <h6 class="mb-1">{{ sel.course.title }}</h6>
       </a>
-      <small class="text-muted">{{ sel.course.school.name }} • {{ sel.course.subject.name }}</small>
+      <small class="text-muted">{{ sel.course.school.name }} • {{ sel.course.subject.name }}{% if sel.course.duration %} • {{ sel.course.duration.name }}{% endif %}</small>
       <p class="mb-1 mt-2">{{ sel.motivation|truncatechars:140 }}</p>
 
       {% if sel.need_tutor %}
