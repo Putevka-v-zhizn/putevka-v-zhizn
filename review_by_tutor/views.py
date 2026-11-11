@@ -33,7 +33,7 @@ from core.forms import SendNotificationForm
 from core.models import MotivationLetter, Notification, UserNotification
 from core.services.email_service import send_email_to_user
 from documents.models import Document, DocumentType
-from my_study.models import CourseSelection, UniversityPriority, AssessmentResult, School, Course
+from my_study.models import CourseSelection, UniversityPriority, AssessmentResult, School, Course, PreparationDirection
 from review_by_tutor.forms import MotivationLetterStaffForm, UserInfoStaffForm, ScholarVideoStaffForm, \
     DocumentStaffUploadForm, DocumentCommentForm, \
     DocumentStatusForm, InterviewForm, TestAssignmentCreateForm, TestAssignmentEditForm, TestResultForm, \
@@ -940,6 +940,19 @@ def staff_study_detail(request, user_id: int):
         .order_by("-created_at", "-id")
     )
 
+    directions = PreparationDirection.objects.filter(user_id=user_id).select_related("subject")
+    preparation_by_subject = {
+        direction.subject_id: {"subject": direction.subject, "direction": direction, "selections": []}
+        for direction in directions
+    }
+    # Include legacy course assignments even before the child opens the study page.
+    for selection in selections:
+        row = preparation_by_subject.setdefault(selection.course.subject_id, {
+            "subject": selection.course.subject, "direction": None, "selections": [],
+        })
+        row["selections"].append(selection)
+    preparation_rows = sorted(preparation_by_subject.values(), key=lambda row: row["subject"].name)
+
     priorities = (
         UniversityPriority.objects
         .filter(user_id=user_id)
@@ -956,6 +969,7 @@ def staff_study_detail(request, user_id: int):
     return render(request, "staff_templates/study_detail.html", {
         "user_obj": user_obj,
         "selections": selections,
+        "preparation_rows": preparation_rows,
         "priorities": priorities,
         "assessments": assessments,
         "active": "study",
