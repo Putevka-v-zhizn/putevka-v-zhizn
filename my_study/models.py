@@ -1,3 +1,4 @@
+from django import VERSION
 from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -151,7 +152,7 @@ class PreparationDirection(models.Model):
         ordering = ["subject__name"]
         constraints = [
             models.UniqueConstraint(fields=["user", "subject"], name="unique_preparation_subject"),
-            models.CheckConstraint(check=(models.Q(not_started=False) | models.Q(independently=False, with_tutor_or_school=False)), name="preparation_methods_exclusive"),
+            models.CheckConstraint(**{("condition" if VERSION >= (5, 1) else "check"): (models.Q(not_started=False) | models.Q(independently=False, with_tutor_or_school=False))}, name="preparation_methods_exclusive"),
         ]
 
     def __str__(self):
