@@ -3,7 +3,7 @@ from .models import CourseSelection, PreparationDirection
 
 
 def ensure_course_direction(user, course, *, clear_not_started=True):
-    if course.is_olympiad:
+    if course.subject.is_olympiad:
         return None
     direction, _ = PreparationDirection.objects.get_or_create(user=user, subject_id=course.subject_id)
     if clear_not_started and direction.not_started:
@@ -13,12 +13,12 @@ def ensure_course_direction(user, course, *, clear_not_started=True):
 
 
 def preparation_rows(user, *, visible_selections=None):
-    selections = list(CourseSelection.objects.filter(user=user, course__is_olympiad=False)
+    selections = list(CourseSelection.objects.filter(user=user, course__subject__is_olympiad=False)
                       .select_related("course__school", "course__subject", "course__duration")
                       .order_by("-created_at", "-id"))
     by_subject = {
         direction.subject_id: {"subject": direction.subject, "direction": direction, "selections": [], "has_courses": False}
-        for direction in PreparationDirection.objects.filter(user=user).select_related("subject")
+        for direction in PreparationDirection.objects.filter(user=user, subject__is_olympiad=False).select_related("subject")
     }
     for selection in selections:
         row = by_subject.setdefault(selection.course.subject_id, {
@@ -26,7 +26,7 @@ def preparation_rows(user, *, visible_selections=None):
         })
         row["has_courses"] = True
     for selection in selections if visible_selections is None else visible_selections:
-        if not selection.course.is_olympiad:
+        if not selection.course.subject.is_olympiad:
             by_subject[selection.course.subject_id]["selections"].append(selection)
     for row in by_subject.values():
         direction = row["direction"]

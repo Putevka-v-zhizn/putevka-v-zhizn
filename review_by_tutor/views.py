@@ -937,7 +937,7 @@ def staff_study_detail(request, user_id: int):
     selections = (
         CourseSelection.objects
         .select_related("course__school", "course__subject", "course__duration")
-        .filter(user_id=user_id, course__is_olympiad=False)
+        .filter(user_id=user_id, course__subject__is_olympiad=False)
         .order_by("-created_at", "-id")
     )
 

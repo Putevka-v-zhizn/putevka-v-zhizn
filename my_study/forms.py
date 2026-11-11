@@ -7,7 +7,7 @@ class CourseFilterForm(forms.Form):
                                      empty_label="Любой срок", label="Срок курса")
     school = forms.IntegerField(required=False, widget=forms.NumberInput(attrs={"hidden": True}))
     subject = forms.ModelChoiceField(
-        queryset=Subject.objects.all(), required=False, empty_label="Все предметы"
+        queryset=Subject.objects.filter(is_olympiad=False), required=False, empty_label="Все предметы"
     )
     q = forms.CharField(required=False, label="Поиск", widget=forms.TextInput(attrs={
         "placeholder": "Название курса…"
@@ -133,5 +133,5 @@ class PreparationAddForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["direction"].choices = [
-            (str(subject.pk), subject.name) for subject in Subject.objects.all()
+            (str(subject.pk), subject.name) for subject in Subject.objects.filter(is_olympiad=False)
         ]
