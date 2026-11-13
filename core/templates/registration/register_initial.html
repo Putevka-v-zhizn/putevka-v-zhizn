@@ -7,6 +7,7 @@
 {% block step %}
   <form method="post" class="needs-validation" novalidate>
     {% csrf_token %}
+    {% if nto_campaign_slug %}<input type="hidden" name="nto" value="{{ nto_campaign_slug }}">{% endif %}
 
     {% if form.non_field_errors %}
       <div class="alert alert-danger">

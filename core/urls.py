@@ -2,11 +2,14 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 
 from . import views
+from . import program_views
 from .views_helper import redirect_to_current_step
 from .views_staff import StaffScholarDossierView, staff_scholar_action
 
 urlpatterns = [
     path('', views.index, name='index'),
+    path('programs/', program_views.programs, name='programs'),
+    path('programs/select/', program_views.program_select, name='program_select'),
 
     path('register/', views.register_initial, name='register_initial'),
     path('register/verify-email/', views.verify_email, name='verify_email'),

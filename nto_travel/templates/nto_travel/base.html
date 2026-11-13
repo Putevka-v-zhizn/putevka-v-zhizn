@@ -1,0 +1,7 @@
+{% extends "core/base.html" %}
+{% block content %}
+  {% for message in messages %}
+    <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-{{ message.tags|default:'info' }}{% endif %}" role="alert">{{ message }}</div>
+  {% endfor %}
+  {% block nto_content %}{% endblock %}
+{% endblock %}

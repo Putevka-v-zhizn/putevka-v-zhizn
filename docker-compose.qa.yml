@@ -10,6 +10,7 @@ services:
       - "443:443"
     volumes:
       - ./deploy/qa/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./staticfiles:/srv/static:ro
       - caddy_data:/data
       - caddy_config:/config
     restart: unless-stopped

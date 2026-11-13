@@ -1,0 +1,13 @@
+<div class="row g-4">
+<div class="col-md-6"><div class="card h-100"><div class="card-body d-flex flex-column">
+<h2 class="h5">Поддержи таланты</h2><p>Программа фонда помогает школьникам подготовиться к поступлению в вуз и поддерживает их на старте студенческой жизни.</p><a class="mb-3" href="https://putevka-v-zhizn.ru/">Узнать подробнее</a>
+{% if preferences.main_enabled %}<p class="text-success">Подключена{% if preferences.active_program == 'main' %} · Текущая{% endif %}</p>{% endif %}
+{% if not application_submissions_open %}<p>Сейчас мы не набираем новых участников. Если ты ещё не в 11-м классе, подпишись на рассылку, чтобы узнать о старте отбора. {% if preferences.main_enabled %}Твой черновик доступен, но отправка закрыта.{% endif %}</p><a class="mb-3" href="{% url 'announce' %}">Узнать о старте отбора</a>{% endif %}
+{% if preferences.main_enabled or application_submissions_open %}
+{% if user.is_authenticated %}<form method="post" action="{% url 'program_select' %}" class="mt-auto">{% csrf_token %}<input type="hidden" name="program" value="main"><button class="btn btn-primary">{% if preferences.main_enabled %}Открыть{% else %}Выбрать{% endif %} «Поддержи таланты»</button></form>{% else %}<a class="btn btn-primary mt-auto" href="{% url 'register_initial' %}">Зарегистрироваться</a>{% endif %}
+{% endif %}</div></div></div>
+<div class="col-md-6"><div class="card h-100"><div class="card-body d-flex flex-column">
+<h2 class="h5">Поддержка поездки на финал НТО</h2><p>Поддержка проезда для участников заключительного этапа Национальной технологической олимпиады. Приём заявок зависит от сезона.</p>
+{% if preferences.nto_enabled %}<p class="text-success">Подключена{% if preferences.active_program == 'nto' %} · Текущая{% endif %}</p>{% endif %}
+{% if user.is_authenticated %}<form method="post" action="{% url 'program_select' %}" class="mt-auto">{% csrf_token %}<input type="hidden" name="program" value="nto"><button class="btn btn-primary">{% if preferences.nto_enabled %}Открыть{% else %}Выбрать{% endif %} НТО</button></form>{% else %}<a class="btn btn-primary mt-auto" href="{% url 'nto_travel:landing' %}">Подробнее о НТО</a>{% endif %}
+</div></div></div></div>

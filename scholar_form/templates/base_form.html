@@ -12,11 +12,13 @@
                     <div class="alert alert-warning">
                         Анкета уже отправлена и доступна только для просмотра.
                     </div>
-                {% elif application_submission_closed and wizard.steps.current == wizard.steps.last %}
+                {% elif application_submission_closed %}
                     <div class="alert alert-info">
                         Приём анкет завершён. Вы можете сохранить черновик, но отправка недоступна.
                     </div>
                 {% endif %}
+                <p class="text-muted">Черновик сохраняется автоматически и может быть неполным. Для перехода далее и отправки заполните все обязательные поля. Необязательные поля: отчество, законный представитель, ВКонтакте и профиль класса.</p>
+                {{ form.non_field_errors }}
 
                 <form method="post"
                       action=""
