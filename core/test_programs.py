@@ -87,7 +87,7 @@ class ProgramSelectionTests(TestCase):
         self.preferences.refresh_from_db()
         self.assertFalse(self.preferences.main_enabled)
         self.assertContains(self.client.get(reverse('announce')), self.user.email)
-        self.client.post(reverse('announce'), {'email': self.user.email})
+        self.client.post(reverse('announce'), {'email': self.user.email, 'personal_data_consent': 'on', 'privacy_consent': 'on'})
         from subscriber.models import EmailSubscriber
         self.assertTrue(EmailSubscriber.objects.filter(email=self.user.email).exists())
 
