@@ -12,7 +12,7 @@ async def check(sample_cases=False):
     from mcp.client.stdio import stdio_client
 
     params = StdioServerParameters(command=sys.executable, args=["-m", "development_mcp"],
-                                   env={name: os.environ[name] for name in ("MCP_DATABASE_URL", "MCP_HMAC_SECRET")})
+                                   env={name: os.environ[name] for name in ("MCP_DATABASE_URL", "MCP_HMAC_SECRET", "MCP_PROGRAMS") if name in os.environ})
     checked = 0
     with open(os.devnull, "w") as errors:
         async with stdio_client(params, errlog=errors) as (read, write):
