@@ -1,0 +1,1 @@
+{"name":"prompt_candidate","provider":"openai","model":"<choose-model>","prompt_file":"prompt-candidate.md","max_completion_tokens":1000}

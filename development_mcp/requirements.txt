@@ -1,0 +1,7 @@
+# Separate from the web application's dependencies; supported SDK v1 API.
+mcp>=1.20,<2
+natasha==1.6.0
+# Natasha's bundled pymorphy2 is incompatible with Python 3.11+ MorphAnalyzer.
+# Use pymorphy3 directly for lemmas/inflections; NER still runs through Natasha.
+pymorphy3>=2.0,<3
+psycopg[binary]>=3.2,<4

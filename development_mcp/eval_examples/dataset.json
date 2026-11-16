@@ -1,0 +1,20 @@
+{
+  "format": "putevka.text-eval-dataset",
+  "version": 1,
+  "sources": [],
+  "examples": [
+    {
+      "id": "50d858e0985ecc7f60418aaf0cc5ab587f42c2570a884095a9e8ccacd0f6545c",
+      "case_id": "bbfcd4160a1e8674dac62292ae48be4785262ad7078f9ec11b74a254ce70fa06",
+      "record_id": "70ce871f8a3d3fb449bc3c3ace6547cef02dfc74ffe48d912532a724bfdbe5b9",
+      "table": "core_motivationletter",
+      "field": "letter_text",
+      "text": "Хочу учиться — и работать.",
+      "expected": {
+        "word_count": 4
+      },
+      "text_sha256": "53e25061a1c9fb352331aa52787f7057705cecb61faef9853a4997fa7a9e6c57"
+    }
+  ],
+  "sha256": "75c3abe7efca0c3fe466989c709616c21103398ca47018ff123565afa62a6f42"
+}

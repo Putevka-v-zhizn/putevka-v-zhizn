@@ -1,0 +1,29 @@
+# Invoke with --env-file /etc/putevka-mcp/runtime.env. No app env file or volumes.
+services:
+  development-mcp:
+    image: ${MCP_IMAGE:-putevka-development-mcp:local}
+    build:
+      context: .
+      dockerfile: deploy/mcp/Dockerfile
+    environment:
+      MCP_DATABASE_URL: ${MCP_DATABASE_URL:?Dedicated read-only database URL required}
+      MCP_PROGRAMS: ${MCP_PROGRAMS:-main,nto,family_income}
+      MCP_HMAC_SECRET: ${MCP_HMAC_SECRET:?Independent HMAC secret required}
+    stdin_open: true
+    tty: false
+    read_only: true
+    user: "10001:10001"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=67108864,mode=1777
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 64
+    logging:
+      driver: none
+    networks: [database]
+networks:
+  database:
+    external: true
+    name: ${MCP_DOCKER_NETWORK:-putevka_app}

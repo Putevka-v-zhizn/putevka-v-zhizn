@@ -1,0 +1,4 @@
+# Install root:root 0440 as /etc/sudoers.d/putevka-mcp; verify with visudo -cf.
+# The empty argument string permits ONLY an invocation with zero arguments.
+Defaults:putevka-mcp env_reset,!setenv
+putevka-mcp ALL=(root) NOPASSWD: /usr/local/sbin/putevka-mcp-session ""

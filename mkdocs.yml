@@ -46,6 +46,8 @@ nav:
       - Локальная разработка: development.md
   - Сервисы:
       - AI-сервис: ai-service.md
+      - Закрытый MCP: development-mcp.md
+      - Инструменты MCP: development-mcp-tools.md
       - Деплой: deployment.md
 
 not_in_nav: backups.md

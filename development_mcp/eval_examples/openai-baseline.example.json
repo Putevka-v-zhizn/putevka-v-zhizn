@@ -1,0 +1,1 @@
+{"name":"prompt_baseline","provider":"openai","model":"<choose-model>","prompt_file":"prompt-baseline.md","max_completion_tokens":1000}

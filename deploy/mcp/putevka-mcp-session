@@ -1,0 +1,14 @@
+#!/bin/sh
+# Install root:root 0755 as /usr/local/sbin/putevka-mcp-session.
+# The SSH account must not own this file, checkout, env file, or Docker socket.
+set -eu
+[ "$#" -eq 0 ] || exit 64
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+unset DOCKER_HOST DOCKER_CONTEXT DOCKER_CONFIG COMPOSE_FILE COMPOSE_PROFILES
+cd /opt/putevka-mcp
+exec /usr/bin/docker --config /etc/putevka-mcp/docker compose \
+    --project-name putevka-mcp \
+    --env-file /etc/putevka-mcp/runtime.env \
+    --env-file /etc/putevka-mcp/image.env \
+    -f /opt/putevka-mcp/docker-compose.mcp.yml \
+    run --rm --no-deps -T development-mcp
