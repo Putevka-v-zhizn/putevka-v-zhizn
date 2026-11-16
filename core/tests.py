@@ -185,7 +185,9 @@ class RegistrationFlowTests(IntegrationTestCase):
         self.assertEqual(attempt.current_step, "finish")
 
         response = self.client.get(reverse("index"))
-        self.assertEqual(response.status_code, 200)
+        self.assertRedirects(response, reverse("programs"))
+        response = self.client.post(reverse("program_select"), {"program": "main"})
+        self.assertRedirects(response, reverse("apply"))
 
 
 class TelegramServiceTests(IntegrationTestCase):

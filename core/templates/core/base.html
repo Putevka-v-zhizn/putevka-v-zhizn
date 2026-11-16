@@ -2,6 +2,7 @@
 <!doctype html>
 <html lang="ru" data-bs-theme="light">
 <head>
+    {% if not suppress_analytics %}
     <!-- Yandex.Metrika counter -->
     <script type="text/javascript">
         (function (m, e, t, r, i, k, a) {
@@ -37,6 +38,7 @@
         <div><img src="https://mc.yandex.ru/watch/107157013" style="position:absolute; left:-9999px;" alt=""/></div>
     </noscript>
     <!-- /Yandex.Metrika counter -->
+    {% endif %}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Портал стипендиатов{% endblock %}</title>
@@ -48,6 +50,8 @@
     <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <link href="{% static 'css/app.css' %}" rel="stylesheet">
+    <link href="{% static 'css/multiselect.css' %}" rel="stylesheet">
+    <script src="{% static 'js/multiselect.js' %}" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -55,13 +59,13 @@
 {% include 'core/_topbar.html' %}
 <div class="container-fluid">
     <div class="row">
-        {% if user.is_authenticated %}
+        {% if show_program_navigation or user.is_staff %}
             <aside class="col-12 col-lg-3 col-xl-2 d-print-none">
                 {% include 'core/_sidebar.html' %}
             </aside>
         {% endif %}
 
-        <main class="py-4 {% if user.is_authenticated %}col-12 col-lg-9 col-xl-10{% else %}col-12{% endif %}">
+        <main class="py-4 {% if show_program_navigation or user.is_staff %}col-12 col-lg-9 col-xl-10{% else %}col-12{% endif %}">
             {% block content %}{% endblock %}
         </main>
     </div>

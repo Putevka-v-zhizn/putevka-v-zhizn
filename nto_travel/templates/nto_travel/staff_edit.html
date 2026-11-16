@@ -1,0 +1,34 @@
+{% extends "nto_travel/base.html" %}
+{% load static %}
+{% block title %}Редактирование заявки №{{ application.pk }}{% endblock %}
+{% block extra_head %}{{ block.super }}<link rel="stylesheet" href="{% static 'nto_travel/profile_picker.css' %}">{% endblock %}
+{% block nto_content %}
+<div class="container py-4" style="max-width: 850px">
+  <a class="btn btn-outline-secondary" href="{% url 'nto_staff:detail' application.campaign.slug application.pk %}">← Карточка заявки</a>
+  <h1 class="h3 mt-3">Редактирование заявки №{{ application.pk }}</h1>
+  <p>Изменения будут записаны в историю заявки.</p>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% for form in forms %}
+      <h2 class="h5 mt-4">{% cycle 'Участник и финал' 'Финансирование' 'Мотивация' %}</h2>
+      {{ form.non_field_errors }}
+      {% for field in form %}<div class="mb-3"><label class="form-label d-block" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}</div>{% endfor %}
+    {% endfor %}
+    <h2 class="h5 mt-4">Профили по приоритету</h2>
+    {{ ranking.errors }}
+    <section id="nto-profile-picker" data-editable="true">
+      {{ ranking.profile_order }}{{ ranking.picker_data|json_script:"nto-profile-data" }}
+      <label for="nto-profile-search" class="form-label">Найти профиль</label>
+      <input type="search" class="form-control" id="nto-profile-search" placeholder="Название профиля или город">
+      <div id="nto-profile-results" class="list-group mt-2 mb-3"></div>
+      <ol id="nto-profile-selected" class="list-unstyled"></ol>
+      <p>Город поездки: <strong id="nto-trip-city"></strong></p>
+      <p id="nto-profile-multiple-cities" hidden>Заявка относится к поездке в город первого профиля.</p>
+      <div id="nto-profile-announcement" class="visually-hidden" role="status"></div>
+    </section>
+    <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+    <a class="btn btn-outline-secondary" href="{% url 'nto_staff:detail' application.campaign.slug application.pk %}">Отмена</a>
+  </form>
+</div>
+{% endblock %}
+{% block extra_js %}{{ block.super }}<script src="{% static 'nto_travel/profile_picker.js' %}" defer></script><script src="{% static 'nto_travel/parent_contact.js' %}" defer></script>{% endblock %}

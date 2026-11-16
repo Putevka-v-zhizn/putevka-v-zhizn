@@ -26,14 +26,14 @@ def announce(request):
             request.session["thanks_email"] = email
             return redirect("thanks_subscribe")
     else:
-        form = EmailSubscriberForm()
+        form = EmailSubscriberForm(initial={'email': request.user.email if request.user.is_authenticated else ''})
 
-    return render(request, "announce.html", {"form": form})
+    return render(request, "announce.html", {"form": form, "suppress_analytics": True, "show_program_navigation": False})
 
 def thanks(request):
     email = request.session.pop("thanks_email", None)
     if email is None:
         return redirect("announce")
-    return render(request, "thanks.html", {"username": email})
+    return render(request, "thanks.html", {"username": email, "suppress_analytics": True, "show_program_navigation": False})
 
 
