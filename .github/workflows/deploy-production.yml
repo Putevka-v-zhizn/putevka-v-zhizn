@@ -132,3 +132,11 @@ jobs:
           docker compose logs --tail=100 web >&2
           exit 1
           REMOTE
+
+  deploy-mcp:
+    needs: deploy
+    # Enable after one-time server bootstrap. Use a repository variable because
+    # reusable-job conditions cannot read production environment variables.
+    if: vars.MCP_ENABLED == 'true'
+    uses: ./.github/workflows/deploy-development-mcp.yml
+    secrets: inherit

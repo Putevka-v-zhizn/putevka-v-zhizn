@@ -1,0 +1,82 @@
+name: Development MCP Tests
+
+on:
+  pull_request:
+    paths:
+      - "development_mcp/**"
+      - "deploy/mcp/**"
+      - "docker-compose.mcp.yml"
+      - ".github/workflows/*mcp*.yml"
+      - ".github/workflows/deploy-production.yml"
+      - "core/management/commands/*mcp*.py"
+      - "core/management/commands/import_development_case.py"
+      - "core/test_*mcp*.py"
+      - "core/test_development_case_import.py"
+      - "Putevka/settings.py"
+      - "*/models.py"
+      - "*/models/**"
+  push:
+    paths:
+      - "development_mcp/**"
+      - "deploy/mcp/**"
+      - "docker-compose.mcp.yml"
+      - ".github/workflows/*mcp*.yml"
+      - ".github/workflows/deploy-production.yml"
+      - "core/management/commands/*mcp*.py"
+      - "core/management/commands/import_development_case.py"
+      - "core/test_*mcp*.py"
+      - "core/test_development_case_import.py"
+      - "Putevka/settings.py"
+      - "*/models.py"
+      - "*/models/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: mcp_test
+          POSTGRES_PASSWORD: mcp-test-only-password
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -r development_mcp/requirements.txt
+      - name: Test redaction, protocol and read-only database permissions
+        env:
+          MCP_TEST_ADMIN_URL: postgresql://postgres:mcp-test-only-password@localhost:5432/mcp_test
+        run: python -m unittest discover -s development_mcp/tests -t . -v
+      - name: Measure annotated redaction quality
+        if: always()
+        run: python -m development_mcp.redaction_quality --output redaction-quality.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: development-mcp-redaction-quality
+          path: redaction-quality.json
+          retention-days: 7
+      - name: Replay offline text comparison example
+        run: python -m development_mcp.evaluation --dataset development_mcp/eval_examples/dataset.json --baseline development_mcp/eval_examples/baseline.json --candidate development_mcp/eval_examples/candidate.json --output evaluation-demo.json
+      - name: Build isolated container and verify offline NLP models
+        run: docker build -f deploy/mcp/Dockerfile -t putevka-development-mcp:test .
+
+  local-import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: sudo apt-get update && sudo apt-get install -y libmagic1
+      - run: python -m pip install -r requirements.txt
+      - name: Test isolated local imports and Django pages
+        run: python manage.py test core.test_development_case_import core.test_mcp_drafting --settings=development_mcp.django_test_settings -v 2

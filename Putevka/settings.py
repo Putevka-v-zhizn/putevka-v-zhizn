@@ -35,6 +35,7 @@ TELEGRAM_SERVICE_TOKEN = os.getenv("TELEGRAM_SERVICE_TOKEN", "")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "false").lower() in {"1", "true", "yes", "on"}
+DEVELOPMENT_MCP_IMPORT_ENABLED = os.getenv("DEVELOPMENT_MCP_IMPORT_ENABLED", "false").lower() in {"1", "true", "yes", "on"}
 CSRF_FAILURE_VIEW = "core.error_views.csrf_failure"
 
 # Controls only the final submission of a candidate questionnaire. Existing

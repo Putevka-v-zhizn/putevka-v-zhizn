@@ -1,0 +1,121 @@
+name: Deploy Development MCP
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: development-mcp-deploy
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: mcp_test
+          POSTGRES_PASSWORD: mcp-test-only-password
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install isolated MCP dependencies
+        run: python -m pip install -r development_mcp/requirements.txt
+      - name: Check redaction, stdio and PostgreSQL permissions
+        env:
+          MCP_TEST_ADMIN_URL: postgresql://postgres:mcp-test-only-password@localhost:5432/mcp_test
+        run: python -m unittest discover -s development_mcp/tests -t . -v
+      - name: Check annotated redaction quality
+        if: always()
+        run: python -m development_mcp.redaction_quality --output redaction-quality.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: development-mcp-redaction-quality
+          path: redaction-quality.json
+          retention-days: 7
+      - name: Verify offline comparison runner
+        run: python -m development_mcp.evaluation --dataset development_mcp/eval_examples/dataset.json --baseline development_mcp/eval_examples/baseline.json --candidate development_mcp/eval_examples/candidate.json --output evaluation-demo.json
+      - name: Build isolated image
+        run: docker build -f deploy/mcp/Dockerfile -t "putevka-development-mcp:$GITHUB_SHA" .
+      - name: Package image
+        env:
+          MCP_PROGRAMS: ${{ vars.MCP_PROGRAMS || 'main,family_income' }}
+        run: |
+          docker save "putevka-development-mcp:$GITHUB_SHA" | gzip > mcp-image.tar.gz
+          python -m development_mcp.grants --update > mcp-grants-update.sql
+          python -m development_mcp.schema > mcp-registry.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: development-mcp-access-update
+          path: |
+            mcp-grants-update.sql
+            mcp-registry.json
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: development-mcp-image
+          path: mcp-image.tar.gz
+          retention-days: 1
+
+  verify-local-import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: sudo apt-get update && sudo apt-get install -y libmagic1
+      - run: python -m pip install -r requirements.txt
+      - name: Check actual Django fields and local replay
+        run: python manage.py test core.test_development_case_import core.test_mcp_drafting --settings=development_mcp.django_test_settings -v 2
+
+  deploy:
+    needs: [verify, verify-local-import]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: development-mcp-image
+      - name: Configure existing production SSH identity
+        env:
+          DEPLOY_HOST: ${{ vars.PROD_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.PROD_DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.PROD_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_USER"
+          test -n "$DEPLOY_SSH_KEY"
+          test -n "$DEPLOY_KNOWN_HOSTS"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/production_deploy_key
+          chmod 600 ~/.ssh/production_deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+      - name: Upload candidate image and configuration
+        env:
+          DEPLOY_HOST: ${{ vars.PROD_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.PROD_DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          target="$DEPLOY_USER@$DEPLOY_HOST"
+          stage="/tmp/putevka-mcp-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          ssh -i ~/.ssh/production_deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes "$target" \
+            "umask 077; mkdir '$stage'"
+          scp -i ~/.ssh/production_deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            mcp-image.tar.gz docker-compose.mcp.yml deploy/mcp/putevka-mcp-session deploy/mcp/update.sh \
+            "$target:$stage/"
+          ssh -i ~/.ssh/production_deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes "$target" \
+            "bash '$stage/update.sh' '$stage' '$GITHUB_SHA'"

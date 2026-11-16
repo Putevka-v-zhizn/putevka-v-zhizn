@@ -1,0 +1,9 @@
+# This image needs only MCP code; don't send production files or local data.
+**
+!development_mcp/
+!development_mcp/**
+!deploy/
+!deploy/mcp/
+!deploy/mcp/Dockerfile
+**/__pycache__/
+**/*.pyc
