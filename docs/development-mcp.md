@@ -403,6 +403,17 @@ MCP-деплой. Старые и новые сеансы проверяют т�
 `["-T", "-o", "BatchMode=yes", "putevka-mcp"]`. В клиент не передаются секреты БД
 или HMAC. Тестовый вызов: `describe_dataset`, затем `list_cases` и `get_case`.
 
+Для Windows OpenSSH передать MCP-процессу `PROGRAMDATA=C:\ProgramData`:
+некоторые клиенты очищают окружение, и без этой переменной `ssh.exe` завершается
+с кодом 255 ещё до подключения. Для Codex CLI:
+
+```powershell
+codex mcp add putevka-development --env "PROGRAMDATA=$env:PROGRAMDATA" -- C:/Windows/System32/OpenSSH/ssh.exe -T putevka-mcp
+```
+
+После добавления открыть новый чат или перезапустить клиент, чтобы он загрузил
+новую конфигурацию MCP. CLI экспорта передаёт эту переменную автоматически.
+
 Для отключения новых подключений удалить публичный ключ на сервере и установить
 `MCP_ENABLED=false`. Для немедленного отзыва также завершить SSH-сеансы пользователя,
 остановить только контейнеры с label `com.docker.compose.project=putevka-mcp` и

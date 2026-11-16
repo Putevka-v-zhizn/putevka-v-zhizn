@@ -32,7 +32,9 @@ async def collect(session, case_id):
 async def download(alias, case_id):
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
-    params = StdioServerParameters(command='ssh', args=['-T', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', alias])
+    # Windows OpenSSH needs PROGRAMDATA, which the SDK does not inherit.
+    environment = {'PROGRAMDATA': os.environ['PROGRAMDATA']} if sys.platform == 'win32' and 'PROGRAMDATA' in os.environ else None
+    params = StdioServerParameters(command='ssh', args=['-T', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', alias], env=environment)
     with open(os.devnull, 'w') as errors:
         async with stdio_client(params, errlog=errors) as (read, write):
             async with ClientSession(read, write, read_timeout_seconds=timedelta(seconds=120)) as session:
