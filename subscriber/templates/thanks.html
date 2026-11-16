@@ -1,76 +1,19 @@
-<!doctype html>
-<html lang="ru">
-<head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <title>Спасибо за интерес</title>
-
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <style>
-        body {
-            background: #f8f9fb;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
-        }
-
-        .card {
-            border-radius: 1.25rem;
-        }
-
-        .icon-circle {
-            width: 70px;
-            height: 70px;
-            border-radius: 50%;
-            background: rgba(25, 135, 84, .12);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 32px;
-            color: #198754;
-        }
-
-        .email-highlight {
-            background: rgba(13,110,253,.08);
-            padding: 4px 8px;
-            border-radius: .5rem;
-            font-weight: 500;
-        }
-    </style>
-</head>
-
-<body>
-
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-12 col-md-8 col-lg-6">
-
-            <div class="card shadow-sm border-0 p-4 p-md-5 text-center">
-
-                <div class="d-flex justify-content-center mb-4">
-                    <div class="icon-circle">
-                        ✓
-                    </div>
-                </div>
-
-                <h2 class="fw-semibold mb-3">Спасибо за интерес!</h2>
-
-                <p class="text-muted mb-4">
-                    Мы получили вашу заявку.
-                </p>
-
-                 <p class="text-muted mb-4">
-                    Письмо придёт на почту {{ username }}, когда стартует отбор!
-                </p>
-
-            </div>
-
-        </div>
+{% extends 'core/base.html' %}
+{% block title %}Подписка сохранена — Поддержи таланты{% endblock %}
+{% block content %}
+<div class="container py-4 py-md-5" style="max-width: 680px">
+  <section class="card border rounded-4 shadow-sm">
+    <div class="card-body p-4 p-md-5">
+      <p class="text-success fw-semibold mb-2">Подписка сохранена</p>
+      <h1 class="h2 fw-bold mb-3">Сообщим, когда начнётся отбор</h1>
+      <p class="text-muted">Письмо о новом наборе в программу «Поддержи таланты» придёт на адрес:</p>
+      <p class="fs-5 fw-semibold mb-4" style="overflow-wrap:anywhere">{{ username }}</p>
+      <p class="text-muted mb-4">Когда получишь письмо, сможешь ознакомиться с условиями и подать заявку.</p>
+      <div class="d-flex flex-wrap gap-3 align-items-center">
+        <a class="btn btn-primary" href="{% url 'index' %}">К программам фонда</a>
+        <a href="{% url 'announce' %}">Указать другую почту</a>
+      </div>
     </div>
+  </section>
 </div>
-
-</body>
-</html>
+{% endblock %}
