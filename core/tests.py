@@ -10,7 +10,6 @@ from io import BytesIO, StringIO
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.cache import cache
@@ -62,17 +61,6 @@ from scholar_form.views import (
 )
 from subscriber.models import EmailSubscriber
 from scholar_form.services import yandex_disk
-
-
-settings.MIGRATION_MODULES = {
-    "core": None,
-    "documents": None,
-    "family_income": None,
-    "my_study": None,
-    "review_by_tutor": None,
-    "scholar_form": None,
-    "subscriber": None,
-}
 
 
 class IntegrationTestCase(TestCase):
@@ -1100,6 +1088,20 @@ class StaffUsersServiceTests(IntegrationTestCase):
 
     def request(self, query):
         return self.factory.get("/staff/users/", data=query)
+
+    def test_search_matches_name_parts_and_phones_from_both_sources(self):
+        self.candidate.first_name = "Иван"
+        self.candidate.last_name = "Петров"
+        self.candidate.save(update_fields=["first_name", "last_name"])
+        self.candidate.user_info.phone = "+7 (900) 123-45-67"
+        self.candidate.user_info.save(update_fields=["phone"])
+        RegistrationPersonalData.objects.filter(user=self.candidate).update(phone="+7 (910) 555-01-23")
+
+        for query in ("Иван Петров", "Пет  Ива", "79001234567", "9105550123"):
+            with self.subTest(query=query):
+                self.assertEqual(list(build_staff_users_queryset(self.request({"q": query}))), [self.candidate])
+
+        self.assertFalse(build_staff_users_queryset(self.request({"q": "Иван Сидоров"})).exists())
 
     def test_build_staff_users_queryset_applies_filters_and_annotations(self):
         request = self.request(
@@ -2349,7 +2351,7 @@ class AiTaskApiTests(IntegrationTestCase):
         self.assertEqual(interview.ai_fill_status, interview.AiFillStatus.FAILED)
 
     def test_ai_file_proxy_downloads_yandex_disk_file_and_deletes_temp_file(self):
-        from core.ai_tasks import file_response_from_token, make_file_token
+        from core.ai_tasks import make_file_token
 
         user = self.create_finished_candidate("ai-file@example.com")
         video = ScholarVideo.objects.create(
@@ -2367,19 +2369,21 @@ class AiTaskApiTests(IntegrationTestCase):
 
         token = make_file_token("scholar_form", "scholarvideo", video.pk, "schedule_file")
 
-        with patch("scholar_form.services.yandex_disk.download_file_from_yandex_disk", side_effect=fake_download):
-            response = file_response_from_token(token)
-            body = b"".join(response.streaming_content)
+        with override_settings(AI_SERVICE_TOKEN="secret"), patch(
+            "scholar_form.services.yandex_disk.download_file_from_yandex_disk", side_effect=fake_download
+        ):
+            response = self.client.get(reverse("ai_file_download", args=[token]), HTTP_AUTHORIZATION="Bearer secret")
+            self.assertEqual(response.status_code, 200)
             temp_path = created_files[0]
             self.assertTrue(os.path.exists(temp_path))
-            response.close()
+            body = b"".join(response.streaming_content)
 
         self.assertEqual(body, b"downloaded:disk:/candidate/schedule.pdf")
         self.assertEqual(response.headers["Content-Disposition"], 'attachment; filename="schedule.pdf"')
         self.assertFalse(os.path.exists(temp_path))
 
     def test_ai_file_proxy_downloads_interview_yandex_disk_video(self):
-        from core.ai_tasks import file_response_from_token, make_file_token
+        from core.ai_tasks import make_file_token
 
         user = self.create_finished_candidate("ai-interview-file@example.com")
         interview = Interview.objects.create(
@@ -2397,12 +2401,14 @@ class AiTaskApiTests(IntegrationTestCase):
 
         token = make_file_token("review_by_tutor", "interview", interview.pk, "video")
 
-        with patch("scholar_form.services.yandex_disk.download_file_from_yandex_disk", side_effect=fake_download):
-            response = file_response_from_token(token)
-            body = b"".join(response.streaming_content)
+        with override_settings(AI_SERVICE_TOKEN="secret"), patch(
+            "scholar_form.services.yandex_disk.download_file_from_yandex_disk", side_effect=fake_download
+        ):
+            response = self.client.get(reverse("ai_file_download", args=[token]), HTTP_AUTHORIZATION="Bearer secret")
+            self.assertEqual(response.status_code, 200)
             temp_path = created_files[0]
             self.assertTrue(os.path.exists(temp_path))
-            response.close()
+            body = b"".join(response.streaming_content)
 
         self.assertEqual(body, b"interview:disk:/interviews/interview.mp4")
         self.assertEqual(response.headers["Content-Disposition"], 'attachment; filename="interview.mp4"')
