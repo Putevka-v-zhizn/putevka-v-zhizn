@@ -1,3 +1,4 @@
+import re
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -7,6 +8,7 @@ from django.db.models import (
     Case, F, When, Value,
     CharField, IntegerField,
 )
+from django.db.models.functions import Replace
 from django.utils import timezone
 
 from core.models import MotivationLetter
@@ -109,14 +111,34 @@ def build_staff_users_queryset(request):
         )
 
     if q:
-        qs = qs.filter(
+        matches = (
             Q(username__icontains=q) |
             Q(email__icontains=q) |
             Q(first_name__icontains=q) |
             Q(last_name__icontains=q) |
             Q(user_info__phone__icontains=q) |
+            Q(registrationpersonaldata__phone__icontains=q) |
             Q(user_info__region__icontains=q)
         )
+        name_parts = q.split()
+        if len(name_parts) > 1:
+            name_matches = Q()
+            for part in name_parts:
+                name_matches &= Q(first_name__icontains=part) | Q(last_name__icontains=part)
+            matches |= name_matches
+
+        if re.fullmatch(r"[0-9+() .\-]+", q):
+            digits = re.sub(r"[^0-9]", "", q)
+            if digits:
+                profile_phone = F("user_info__phone")
+                registration_phone = F("registrationpersonaldata__phone")
+                for separator in "+() .-":
+                    profile_phone = Replace(profile_phone, Value(separator), Value(""))
+                    registration_phone = Replace(registration_phone, Value(separator), Value(""))
+                qs = qs.alias(search_profile_phone=profile_phone, search_registration_phone=registration_phone)
+                matches |= Q(search_profile_phone__contains=digits) | Q(search_registration_phone__contains=digits)
+
+        qs = qs.filter(matches)
 
     if school:
         qs = qs.filter(course_selections__course__school_id=school)

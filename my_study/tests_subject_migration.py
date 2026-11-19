@@ -1,13 +1,9 @@
-from unittest import skipIf
-
 from django.conf import settings
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TransactionTestCase
 
 
-@skipIf(settings.MIGRATION_MODULES.get("my_study", "enabled") is None,
-        "The full legacy suite disables application migrations; run this test separately.")
 class OlympiadSubjectMigrationTests(TransactionTestCase):
     old = ("my_study", "0007_courseduration_course_is_olympiad_course_duration")
     new = ("my_study", "0009_remove_course_olympiad_flag")
