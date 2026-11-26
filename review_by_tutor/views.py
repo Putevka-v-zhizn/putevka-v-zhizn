@@ -33,6 +33,7 @@ from core.forms import SendNotificationForm
 from core.models import MotivationLetter, Notification, UserNotification
 from core.services.email_service import send_email_to_user
 from documents.models import Document, DocumentType
+from my_study.forms import PreparationAddForm, PreparationMethodsForm
 from my_study.preparation import preparation_rows
 from my_study.models import CourseSelection, UniversityPriority, AssessmentResult, School, Course, PreparationDirection
 from review_by_tutor.forms import MotivationLetterStaffForm, UserInfoStaffForm, ScholarVideoStaffForm, \
@@ -929,9 +930,15 @@ def staff_study_detail(request, user_id: int):
     user_obj = get_object_or_404(User, pk=user_id)
     send_notification_form = handle_send_notification(request, user_obj)
 
-    if request.method == "POST" and request.POST.get("action") == "send_notification":
-        handle_send_notification(request, user_obj)
-        logger.info("SADF")
+    action = request.POST.get("action")
+    if action == "send_notification":
+        return redirect("staff_study_detail", user_id=user_id)
+
+    add_preparation_form = PreparationAddForm(request.POST if action == "add_preparation" else None)
+    if add_preparation_form.is_bound and add_preparation_form.is_valid():
+        PreparationDirection.objects.get_or_create(
+            user=user_obj, subject_id=add_preparation_form.cleaned_data["direction"],
+        )
         return redirect("staff_study_detail", user_id=user_id)
 
     selections = (
@@ -942,6 +949,22 @@ def staff_study_detail(request, user_id: int):
     )
 
     preparation_summary = preparation_rows(user_obj)
+    edited_subject = request.POST.get("subject_id") if action == "save_preparation" else None
+    for row in preparation_summary:
+        subject_id = row["subject"].pk
+        form = PreparationMethodsForm(
+            request.POST if edited_subject == str(subject_id) else None,
+            initial={field: getattr(row["direction"], field, False) for field in PreparationMethodsForm.base_fields},
+            has_courses=row["has_courses"],
+            prefix=f"preparation-{subject_id}",
+        )
+        row["methods_form"] = form
+        if form.is_bound and form.is_valid():
+            PreparationDirection.objects.update_or_create(
+                user=user_obj, subject_id=subject_id, defaults=form.cleaned_data,
+            )
+            messages.success(request, "Способы подготовки сохранены.")
+            return redirect("staff_study_detail", user_id=user_id)
 
     priorities = (
         UniversityPriority.objects
@@ -960,6 +983,7 @@ def staff_study_detail(request, user_id: int):
         "user_obj": user_obj,
         "selections": selections,
         "preparation_rows": preparation_summary,
+        "add_preparation_form": add_preparation_form,
         "priorities": priorities,
         "assessments": assessments,
         "active": "study",
