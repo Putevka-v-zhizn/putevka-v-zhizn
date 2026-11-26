@@ -29,6 +29,36 @@ from scholar_form.forms import FamilyForm
 TEMP_MEDIA_ROOT = tempfile.mkdtemp()
 
 
+class StaffPreparationMethodsTests(TestCase):
+    def test_staff_can_add_ege_subject_and_edit_its_methods(self):
+        from my_study.models import PreparationDirection
+
+        users = get_user_model()
+        staff = users.objects.create_user(username="prep-staff", is_staff=True)
+        participant = users.objects.create_user(username="prep-child")
+        subject = Subject.objects.create(name="Физика", slug="physics")
+        self.client.force_login(staff)
+        url = reverse("staff_study_detail", args=[participant.pk])
+
+        response = self.client.post(url, {"action": "add_preparation", "direction": subject.pk})
+        self.assertRedirects(response, url)
+        self.assertContains(self.client.get(url), "Редактировать способы подготовки")
+
+        data = {
+            "action": "save_preparation",
+            "subject_id": subject.pk,
+            f"preparation-{subject.pk}-independently": "on",
+        }
+        self.assertRedirects(self.client.post(url, data), url)
+        direction = PreparationDirection.objects.get(user=participant, subject=subject)
+        self.assertTrue(direction.independently)
+
+        data[f"preparation-{subject.pk}-not_started"] = "on"
+        self.assertContains(self.client.post(url, data), "нельзя сочетать")
+        direction.refresh_from_db()
+        self.assertFalse(direction.not_started)
+
+
 class StaffUsersExportTests(TestCase):
     def test_export_includes_family_income_sheet_without_changing_main_sheet(self):
         staff = get_user_model().objects.create_user(
