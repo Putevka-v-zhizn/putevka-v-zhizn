@@ -32,7 +32,8 @@ class StaffStudyPreparationTests(TestCase):
         self.assertContains(response, "Нет выбранных курсов")
         self.assertContains(response, "Обновлено:")
         self.assertEqual(len(response.context["preparation_rows"]), 1)
-        self.assertNotContains(response, self.physics.name)
+        self.assertNotContains(response, f'<h2 class="h5">{self.physics.name}</h2>', html=True)
+        self.assertContains(response, f'<option value="{self.physics.pk}">{self.physics.name}</option>', html=True)
 
     def test_legacy_courses_grouped_without_creating_answers_or_hiding_track_courses(self):
         for title in ("Первый курс", "Второй курс"):
