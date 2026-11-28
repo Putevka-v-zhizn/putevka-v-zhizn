@@ -69,6 +69,7 @@ if not User.objects.filter(username=user_name).exists():
 
 python Shadows/notification_worker.py &
 
-# Start Gunicorn server
-#exec gunicorn Putevka.wsgi:application --bind 0.0.0.0:8000
-exec python manage.py runserver 0.0.0.0:8000
+# Close database connections at the end of each web request by default.
+export DJANGO_DB_CONN_MAX_AGE="${DJANGO_DB_CONN_MAX_AGE:-0}"
+exec gunicorn Putevka.wsgi:application --bind 0.0.0.0:8000 \
+    --worker-class gthread --workers 2 --threads 2 --timeout 60

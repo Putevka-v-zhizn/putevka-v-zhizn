@@ -49,6 +49,9 @@ jobs:
           DEFAULT_FROM_EMAIL: test@example.com
           YANDEX_DISK_OAUTH_TOKEN: ""
         run: |
+          sh -n entrypoint.sh
+          gunicorn --check-config Putevka.wsgi:application --bind 127.0.0.1:8000 \
+            --worker-class gthread --workers 2 --threads 2 --timeout 60
           app_labels="$(python -c "import os; from pathlib import Path; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Putevka.settings'); import django; django.setup(); from django.apps import apps; print(' '.join(app.label for app in apps.get_app_configs() if Path(app.path).parent == Path.cwd() and (Path(app.path) / 'models.py').exists()))")"
           coverage run --source=core,documents,my_study,review_by_tutor,scholar_form,subscriber manage.py test $app_labels -v 2
           coverage report --fail-under=70 --show-missing
