@@ -1,113 +1,51 @@
-<!doctype html>
-<html lang="ru">
-<head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <title>Скоро отбор — Путёвка в жизнь</title>
-
-    <!-- Bootstrap + Icons -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-
-    <style>
-        body {
-            background: #f8f9fb;
-        }
-
-        .hero-card {
-            border-radius: 1.25rem;
-        }
-
-        .soft-gradient {
-            background: linear-gradient(
-                    135deg,
-                    rgba(13, 110, 253, .08),
-                    rgba(25, 135, 84, .06)
-            );
-        }
-
-        .rounded-xl {
-            border-radius: 1rem;
-        }
-
-        .email-input {
-            border-radius: .75rem;
-        }
-
-        .btn-rounded {
-            border-radius: .75rem;
-        }
-
-        .feature-icon {
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(13, 110, 253, .10);
-            color: #0d6efd;
-        }
-    </style>
-</head>
-
-<body>
-
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-12 col-lg-10 col-xl-8">
-
-            <!-- Заголовок -->
-            <div class="text-center mb-5">
-                <h1 class="fw-bold mb-3">Скоро начало отбора</h1>
-                <p class="text-muted fs-5 mb-0">
-                    Мы готовим запуск сервиса.
-                    Оставьте почту — пришлём приглашение на регистрацию.
-                </p>
-            </div>
-
-            <!-- Главная карточка -->
-            <div class="card hero-card shadow-sm border-0 overflow-hidden">
-                <div class="soft-gradient p-4 p-lg-5 border-bottom">
-
-                    <h4 class="mb-2">Ранняя регистрация</h4>
-                    <div class="text-muted">
-                        Когда регистрация будет открыта, вы получите ссылку.
-                    </div>
-                </div>
-
-                <div class="card-body p-4 p-lg-5">
-
-                    <form method="post" class="row g-3 align-items-center">
-                        {% csrf_token %}
-
-                        <div class="col-12 col-md">
-                            {{ form.email }}
-                        </div>
-
-                        <div class="col-12 col-md-auto">
-                            <button type="submit" class="btn btn-primary btn-rounded px-4 w-100">
-                                <i class="bi bi-envelope-plus me-1"></i>
-                                Получить приглашение
-                            </button>
-                        </div>
-                    </form>
-
-                    {% if form.errors %}
-                        <div class="alert alert-danger mt-3 mb-0">
-                            {{ form.errors }}
-                        </div>
-                    {% endif %}
-
-                    <div class="small text-muted mt-3">
-                        Мы отправим одно письмо при открытии регистрации.
-                    </div>
-                </div>
-            </div>
-
+{% extends 'core/base.html' %}
+{% block title %}Узнать о новом отборе — Поддержи таланты{% endblock %}
+{% block content %}
+<div class="container py-3 py-md-5" style="max-width: 680px">
+  <a class="text-decoration-none" href="{% url 'index' %}">← К программам фонда</a>
+  <div class="mt-4 mb-4">
+    <p class="text-muted mb-2">Программа «Поддержи таланты»</p>
+    <h1 class="h2 fw-bold mb-3">Узнай о старте нового отбора</h1>
+    <p class="fs-5 text-muted">Сейчас набор закрыт. Если ты ещё не в 11 классе, оставь почту — сообщим, когда начнётся следующий отбор.</p>
+  </div>
+  <section class="card border rounded-4 shadow-sm">
+    <div class="card-body p-4 p-md-5">
+      <h2 class="h5 mb-3">Куда прислать уведомление?</h2>
+      <form method="post" id="subscription-form">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        <label class="form-label fw-semibold" for="{{ form.email.id_for_label }}">Твоя электронная почта</label>
+        {{ form.email }}
+        {% for error in form.email.errors %}<div id="email-error" class="text-danger small mt-2" role="alert">{{ error }}</div>{% endfor %}
+        <p id="email-hint" class="form-text mt-2 mb-4">Отправим одно письмо о начале отбора со ссылкой на подачу заявки.</p>
+        <div class="form-check mb-3">
+          {{ form.personal_data_consent }}
+          <label class="form-check-label" for="{{ form.personal_data_consent.id_for_label }}">Даю <a href="https://disk.yandex.ru/d/kme9vXodYjntrA" target="_blank" rel="noopener noreferrer">согласие на обработку персональных данных</a></label>
+          {% for error in form.personal_data_consent.errors %}<div class="text-danger small" role="alert">{{ error }}</div>{% endfor %}
         </div>
+        <div class="form-check mb-4">
+          {{ form.privacy_consent }}
+          <label class="form-check-label" for="{{ form.privacy_consent.id_for_label }}">Согласен(-на) с <a href="https://disk.yandex.ru/d/I2-TWTBEYwWdXw" target="_blank" rel="noopener noreferrer">Политикой конфиденциальности</a></label>
+          {% for error in form.privacy_consent.errors %}<div class="text-danger small" role="alert">{{ error }}</div>{% endfor %}
+        </div>
+        <button type="submit" id="subscribe-button" class="btn btn-primary btn-lg w-100">Сообщить мне о старте отбора</button>
+      </form>
+      <p class="small text-muted mt-3 mb-0">Это подписка на уведомление. Она не заменяет заявку и не гарантирует участие в программе.</p>
     </div>
+  </section>
+  <p class="mt-4 text-muted">Хочешь узнать о поддержке фонда? <a href="https://putevka-v-zhizn.ru/">Подробнее о программе</a></p>
 </div>
-
-</body>
-</html>
+{% endblock %}
+{% block extra_js %}
+<script>
+(() => {
+  const form = document.getElementById('subscription-form');
+  const button = document.getElementById('subscribe-button');
+  const checks = [form.elements.personal_data_consent, form.elements.privacy_consent];
+  const update = () => { button.disabled = !checks.every(check => check.checked); };
+  checks.forEach(check => check.addEventListener('change', update));
+  window.addEventListener('pageshow', update);
+  update();
+})();
+</script>
+{% endblock %}

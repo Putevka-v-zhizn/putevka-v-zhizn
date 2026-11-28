@@ -1,0 +1,15 @@
+.nto-profile-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: .5rem .75rem;
+}
+.nto-profile-info { overflow-wrap: anywhere; }
+.nto-profile-row > .badge { justify-self: start; white-space: nowrap; }
+.nto-profile-controls { display: flex; flex-wrap: wrap; gap: .375rem; }
+.nto-profile-controls button { min-width: 44px; min-height: 44px; }
+.nto-profile-result { min-height: 44px; text-align: left; }
+@media (min-width: 576px) {
+    .nto-profile-row { grid-template-columns: max-content minmax(0, 1fr) auto; align-items: center; }
+    .nto-profile-controls { grid-column: 3; }
+}

@@ -1,0 +1,9 @@
+<div class="table-responsive">
+  <table class="table table-sm align-middle">
+    <tbody>
+    {% for label, value in answer_rows %}
+      <tr><th scope="row" style="width: 35%">{{ label }}</th><td style="white-space: pre-wrap">{{ value }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
