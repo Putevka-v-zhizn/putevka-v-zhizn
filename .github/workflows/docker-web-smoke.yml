@@ -41,7 +41,7 @@ jobs:
       - name: Check Gunicorn and authenticate through Django
         run: |
           set -euo pipefail
-          curl --retry 45 --retry-delay 2 --retry-connrefused --max-time 5 \
+          curl --retry 45 --retry-delay 2 --retry-all-errors --retry-max-time 120 --max-time 5 \
             --fail --silent --show-error --output /dev/null \
             http://127.0.0.1:8000/admin/login/
           docker compose exec -T web sh -ec '
