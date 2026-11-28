@@ -1,0 +1,79 @@
+name: Docker web smoke test
+
+on:
+  pull_request:
+    paths:
+      - '**/*.py'
+      - '**/*.html'
+      - Dockerfile
+      - .dockerignore
+      - docker-compose.yml
+      - entrypoint.sh
+      - requirements.txt
+      - .github/workflows/docker-web-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Start web and disposable PostgreSQL
+        run: |
+          cat > .env <<'ENV'
+          POSTGRES_DB=smoke
+          POSTGRES_USER=smoke
+          POSTGRES_PASSWORD=smoke-database-only
+          SECRET_KEY=smoke-test-only
+          DEBUG=false
+          ALLOWED_HOSTS=127.0.0.1
+          BASE_URL=http://127.0.0.1:8000
+          DJANGO_SUPERUSER_USERNAME=smoke-admin
+          DJANGO_SUPERUSER_PASSWORD=smoke-admin-only
+          ENV
+          docker compose up -d --build web
+      - name: Check Gunicorn and authenticate through Django
+        run: |
+          set -euo pipefail
+          curl --retry 45 --retry-delay 2 --retry-connrefused --max-time 5 \
+            --fail --silent --show-error --output /dev/null \
+            http://127.0.0.1:8000/admin/login/
+          docker compose exec -T web sh -ec '
+            tr "\\000" " " </proc/1/cmdline | grep -i gunicorn
+            test -s /app/staticfiles/admin/css/base.css
+          '
+          python3 - <<'PY'
+          import http.cookiejar
+          import urllib.parse
+          import urllib.request
+
+          login = "http://127.0.0.1:8000/admin/login/"
+          cookies = http.cookiejar.CookieJar()
+          browser = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookies))
+          with browser.open(login, timeout=10) as response:
+              assert response.status == 200
+          csrf = next(cookie.value for cookie in cookies if cookie.name == "csrftoken")
+          body = urllib.parse.urlencode({
+              "username": "smoke-admin",
+              "password": "smoke-admin-only",
+              "csrfmiddlewaretoken": csrf,
+              "next": "/admin/",
+          }).encode()
+          request = urllib.request.Request(login, data=body, headers={"Referer": login})
+          with browser.open(request, timeout=10) as response:
+              assert response.status == 200
+              assert urllib.parse.urlsplit(response.url).path == "/admin/", response.url
+          assert any(cookie.name == "sessionid" for cookie in cookies), "Login did not create a session"
+          PY
+      - name: Print startup logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail=150 web db
+      - name: Remove disposable services and volumes
+        if: always()
+        run: docker compose down --volumes
